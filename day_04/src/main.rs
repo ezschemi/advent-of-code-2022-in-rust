@@ -67,6 +67,22 @@ impl SectionAssignments {
         }
         false
     }
+
+    pub fn has_any_overlap(&self) -> bool {
+        // check if the second section is fully contained within the first section
+        if (self.start_1 >= self.start_0 && self.start_1 <= self.end_0)
+            || (self.end_1 >= self.start_0 && self.end_1 <= self.end_0)
+        {
+            return true;
+        }
+        // check if the first section is fully contained within the second section
+        if (self.start_0 >= self.start_1 && self.start_0 <= self.end_1)
+            || (self.end_0 >= self.start_1 && self.end_0 <= self.end_1)
+        {
+            return true;
+        }
+        false
+    }
 }
 fn main() {
     let lines = vec![
@@ -74,9 +90,7 @@ fn main() {
     ];
 
     let input_filename = String::from("input.txt");
-
     let content = fs::read_to_string(&input_filename).unwrap();
-
     let lines = content.lines();
 
     let mut assignments = Vec::new();
@@ -89,10 +103,15 @@ fn main() {
     println!("Assignments: {}", assignments.len());
 
     let mut n_sections_fully_contained = 0;
+    let mut n_sections_overlapping = 0;
+
     for a in assignments {
         if a.does_one_fully_contain_the_other() {
             n_sections_fully_contained += 1;
             // println!("{:#?}", a);
+        }
+        if a.has_any_overlap() {
+            n_sections_overlapping += 1;
         }
     }
     // let n_sections_fully_contained: usize = assignments
@@ -101,4 +120,5 @@ fn main() {
     //     .sum();
 
     println!("n_sections_fully_contained: {}", n_sections_fully_contained);
+    println!("n_sections_overlapping: {}", n_sections_overlapping);
 }
