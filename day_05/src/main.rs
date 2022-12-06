@@ -1,6 +1,6 @@
 use std::fs;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Stack {
     name: usize,
     stack: Vec<char>,
@@ -14,7 +14,7 @@ impl Stack {
         }
     }
 }
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Stacks {
     stacks: Vec<Stack>,
 }
@@ -76,11 +76,12 @@ impl Stacks {
         Stacks { stacks }
     }
 
-    pub fn apply(&mut self, instruction: MoveInstruction) {
+    pub fn apply_CrateMover9000(&mut self, instruction: &MoveInstruction) {
         let from_stack: &mut Stack = &mut self.stacks[instruction.from - 1];
 
         let count = instruction.count;
 
+        // TODO how to do this without copying the values to a temporary stack?
         let mut temp_stack = Stack::new(usize::MAX);
 
         for _ in 0..count {
@@ -95,13 +96,32 @@ impl Stacks {
         }
     }
 
+    pub fn apply_CrateMover9001(&mut self, instruction: &MoveInstruction) {
+        let from_stack: &mut Stack = &mut self.stacks[instruction.from - 1];
+
+        let count = instruction.count;
+
+        // TODO how to do this without copying the values to a temporary stack?
+        let mut temp_stack = Stack::new(usize::MAX);
+
+        for _ in 0..count {
+            let v = from_stack.stack.pop().unwrap();
+
+            temp_stack.stack.push(v);
+        }
+
+        let to_stack: &mut Stack = &mut self.stacks[instruction.to - 1];
+        for v in temp_stack.stack.iter().rev() {
+            to_stack.stack.push(*v);
+        }
+    }
+
     pub fn crates_on_top(&self) -> String {
         let mut result = String::new();
 
         for stack in self.stacks.iter() {
             let crate_on_top = stack.stack.last().unwrap().to_string();
             result.push_str(&String::from(crate_on_top));
-            // result += stack.stack.last().unwrap().to_string();
         }
 
         result
@@ -167,7 +187,7 @@ move 1 from 1 to 2";
     println!("Initial layout: {:?}", initial_stack_layout_strs.len());
     println!("Instructions: {:?}", instructions_strs.len());
 
-    let mut stacks = Stacks::new(initial_stack_layout_strs);
+    let mut stacks_CrateMover9000 = Stacks::new(initial_stack_layout_strs);
 
     // println!("Stacks:\n{:#?}", stacks);
 
@@ -181,14 +201,24 @@ move 1 from 1 to 2";
 
     // println!("Instructions:\n{:#?}", instructions);
 
+    let mut stack_CrateMover9001 = stacks_CrateMover9000.clone();
+
     for instruction in instructions {
         // println!("Applying instruction: {:#?}", instruction);
-        stacks.apply(instruction);
+        stacks_CrateMover9000.apply_CrateMover9000(&instruction);
+
+        stack_CrateMover9001.apply_CrateMover9001(&instruction);
 
         // println!("Stacks:\n{:#?}\n", stacks);
     }
 
-    let crates_on_top = stacks.crates_on_top();
+    let crates_on_top = stacks_CrateMover9000.crates_on_top();
+    println!(
+        "Crates on top after applying all the instructions:\n{:#?}",
+        crates_on_top
+    );
+
+    let crates_on_top = stack_CrateMover9001.crates_on_top();
     println!(
         "Crates on top after applying all the instructions:\n{:#?}",
         crates_on_top
