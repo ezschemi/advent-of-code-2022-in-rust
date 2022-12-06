@@ -7,6 +7,12 @@ enum HandShape {
     Scissors,
 }
 
+enum Outcome {
+    Win,
+    Lose,
+    Draw,
+}
+
 #[derive(Debug)]
 struct Round {
     opponents_play: HandShape,
@@ -58,7 +64,7 @@ fn calculate_score(opponents_play: HandShape, my_play: HandShape) -> usize {
 }
 
 impl Round {
-    fn new_from_chars(char_opponents_play: char, char_my_play: char) -> Round {
+    fn new_plays_from_chars(char_opponents_play: char, char_my_play: char) -> Round {
         let opponents_play = match char_opponents_play {
             'A' => HandShape::Rock,
             'B' => HandShape::Paper,
@@ -77,6 +83,57 @@ impl Round {
             score: calculate_score(opponents_play, my_play),
         }
     }
+    fn new_outcomes_from_chars(char_opponents_play: char, char_outcome: char) -> Round {
+        let opponents_play = match char_opponents_play {
+            'A' => HandShape::Rock,
+            'B' => HandShape::Paper,
+            'C' => HandShape::Scissors,
+            _ => unreachable!(),
+        };
+        let outcome = match char_outcome {
+            'X' => Outcome::Lose,
+            'Y' => Outcome::Draw,
+            'Z' => Outcome::Win,
+            _ => unreachable!(),
+        };
+        let my_play = match outcome {
+            Outcome::Lose => {
+                if opponents_play == HandShape::Rock {
+                    HandShape::Scissors
+                } else if opponents_play == HandShape::Paper {
+                    HandShape::Rock
+                } else {
+                    // opponents_play == HandShape::Scissors
+                    HandShape::Paper
+                }
+            }
+            Outcome::Draw => {
+                if opponents_play == HandShape::Rock {
+                    HandShape::Rock
+                } else if opponents_play == HandShape::Paper {
+                    HandShape::Paper
+                } else {
+                    // opponents_play == HandShape::Scissors
+                    HandShape::Scissors
+                }
+            }
+            Outcome::Win => {
+                if opponents_play == HandShape::Rock {
+                    HandShape::Paper
+                } else if opponents_play == HandShape::Paper {
+                    HandShape::Scissors
+                } else {
+                    // opponents_play == HandShape::Scissors
+                    HandShape::Rock
+                }
+            }
+        };
+        Round {
+            opponents_play,
+            my_play,
+            score: calculate_score(opponents_play, my_play),
+        }
+    }
 }
 fn main() {
     let input_filename = String::from("input.txt");
@@ -85,19 +142,30 @@ fn main() {
 
     let lines = content.lines();
 
-    let mut rounds = Vec::new();
+    let mut rounds_puzzle_1 = Vec::new();
+    let mut rounds_puzzle_2 = Vec::new();
 
     for line in lines {
         let line = line.trim();
         let char_0 = line.chars().nth(0).unwrap();
         let char_1 = line.chars().last().unwrap();
 
-        rounds.push(Round::new_from_chars(char_0, char_1));
+        rounds_puzzle_1.push(Round::new_plays_from_chars(char_0, char_1));
+
+        rounds_puzzle_2.push(Round::new_outcomes_from_chars(char_0, char_1));
     }
 
-    println!("Rounds: {:?}", rounds.len());
+    println!(
+        "Rounds: {} and {}",
+        rounds_puzzle_1.len(),
+        rounds_puzzle_2.len()
+    );
 
-    let total_score: usize = rounds.iter().map(|r| r.score).sum();
+    // println!("Rounds: {:?}", rounds);
 
-    println!("Total score: {}", total_score);
+    let total_score_puzzle_1: usize = rounds_puzzle_1.iter().map(|r| r.score).sum();
+    println!("Total score for Puzzle 1: {}", total_score_puzzle_1);
+
+    let total_score_puzzle_2: usize = rounds_puzzle_2.iter().map(|r| r.score).sum();
+    println!("Total score for Puzzle 2: {}", total_score_puzzle_2);
 }
