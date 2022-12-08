@@ -251,6 +251,8 @@ fn imperative_style() -> color_eyre::Result<()> {
     Ok(())
 }
 fn main() -> color_eyre::Result<()> {
+    color_eyre::install()?;
+
     imperative_style()?;
 
     more_functional_style()?;
