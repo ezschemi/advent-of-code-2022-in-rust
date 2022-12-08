@@ -53,16 +53,13 @@ fn with_iterators_batching() -> color_eyre::Result<usize> {
     let max_calories = include_str!("../input.txt")
         .lines()
         .map(|v| v.parse::<usize>().ok())
-        .batching(|it| {
-            let mut sum = None;
-            while let Some(Some(v)) = it.next() {
-                sum = Some(sum.unwrap_or(0) + v);
-            }
-            sum
-        })
-        .max();
+        .batching(|mut it| (&mut it).map_while(|x| x).sum1::<usize>())
+        .map(Reverse)
+        .k_smallest(3)
+        .map(|x| x.0)
+        .sum::<usize>();
 
-    Ok(max_calories.unwrap())
+    Ok(max_calories)
 }
 fn with_iterators_coalesce() -> color_eyre::Result<usize> {
     let max_calories = include_str!("../input.txt")
