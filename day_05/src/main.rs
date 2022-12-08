@@ -1,4 +1,314 @@
+use std::fmt;
 use std::fs;
+
+use itertools::Itertools;
+use nom::bytes::complete::take_while1;
+use nom::multi::separated_list1;
+// use bytes::complete as all the bytes are there, and no
+// streaming parser is needed (bytes::streaming)
+use nom::{
+    branch::alt,
+    bytes::complete::{tag, take},
+    character::complete::digit1,
+    combinator::{all_consuming, map, map_res, opt},
+    sequence::{delimited, preceded, tuple},
+    Finish, IResult,
+};
+use smallvec::SmallVec;
+
+use std::alloc::System;
+use tracking_allocator::{
+    AllocationGroupId, AllocationGroupToken, AllocationRegistry, AllocationTracker, Allocator,
+};
+
+#[global_allocator]
+static GLOBAL: tracking_allocator::Allocator<std::alloc::System> =
+    tracking_allocator::Allocator::system();
+
+// #[global_allocator]
+// static GLOBAL: Allocator<System> = Allocator::system();
+
+struct StdoutTracker;
+
+impl AllocationTracker for StdoutTracker {
+    fn allocated(
+        &self,
+        addr: usize,
+        object_size: usize,
+        wrapped_size: usize,
+        group_id: AllocationGroupId,
+    ) {
+        println!(
+            "allocation -> addr=0x{:0x} object_size={} wrapped_size={} group_id={:?}",
+            addr, object_size, wrapped_size, group_id
+        );
+        // panic!();
+    }
+
+    fn deallocated(
+        &self,
+        addr: usize,
+        object_size: usize,
+        wrapped_size: usize,
+        source_group_id: AllocationGroupId,
+        current_group_id: AllocationGroupId,
+    ) {
+        println!(
+            "deallocation -> addr=0x{:0x} object_size={} wrapped_size={} source_group_id={:?} current_group_id={:?}",
+            addr, object_size, wrapped_size, source_group_id, current_group_id
+        );
+    }
+}
+
+#[derive(Clone, Copy)]
+struct Crate(char);
+
+impl fmt::Debug for Crate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+impl fmt::Display for Crate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
+}
+#[derive(Clone, Debug)]
+struct Instruction {
+    quantity: usize,
+    src: usize,
+    dst: usize,
+}
+
+#[derive(Clone)]
+struct Piles(Vec<Vec<Crate>>);
+
+impl fmt::Debug for Piles {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (i, pile) in self.0.iter().enumerate() {
+            writeln!(f, "Pile {}: {:?}", i, pile)?;
+        }
+        Ok(())
+    }
+}
+#[derive(Debug)]
+enum InstructionApplicationType {
+    Type_9000,
+    Type_9001,
+    Type_9001_smallVec,
+}
+impl Piles {
+    fn apply_9000(&mut self, instruction: &Instruction) {
+        for _ in 0..instruction.quantity {
+            let e = self.0[instruction.src].pop().unwrap();
+            self.0[instruction.dst].push(e);
+        }
+    }
+
+    fn apply_9001(&mut self, instruction: &Instruction) {
+        // cant do the following code, as the borrow checker
+        // can't know that src and dst will never point to the same value.
+        // "crate" is a keyword, so use different spelling.
+        // for krate in (0..instruction.quantity)
+        //     .map(|_| self.0[instruction.src].pop().unwrap())
+        //     .rev()
+        // {
+        //     self.0[instruction.dst].push(krate);
+        // }
+
+        for krate in (0..instruction.quantity)
+            .map(|_| self.0[instruction.src].pop().unwrap())
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+        {
+            self.0[instruction.dst].push(krate);
+        }
+    }
+
+    fn apply_9001_smallvec(&mut self, instruction: &Instruction) {
+        // see remarks in apply_9001()!
+
+        for krate in (0..instruction.quantity)
+            .map(|_| self.0[instruction.src].pop().unwrap())
+            .collect::<SmallVec<[_; 64]>>()
+            .into_iter()
+            .rev()
+        {
+            self.0[instruction.dst].push(krate);
+        }
+    }
+}
+
+fn parse_crate(i: &str) -> IResult<&str, Crate> {
+    let first_char = |s: &str| Crate(s.chars().next().unwrap());
+    let f = delimited(tag("["), take(1_usize), tag("]"));
+
+    map(f, first_char)(i)
+}
+
+fn parse_hole(i: &str) -> IResult<&str, ()> {
+    map(tag("   "), drop)(i)
+}
+
+fn parse_crate_or_hole(i: &str) -> IResult<&str, Option<Crate>> {
+    alt((map(parse_crate, Some), map(parse_hole, |_| None)))(i)
+}
+
+fn parse_crate_line(i: &str) -> IResult<&str, Vec<Option<Crate>>> {
+    // let (mut i, c) = parse_crate_or_hole(i)?;
+    // let mut v = vec![c];
+
+    // loop {
+    //     let (next_i, maybe_c) = opt(preceded(tag(" "), parse_crate_or_hole))(i)?;
+    //     match maybe_c {
+    //         Some(c) => v.push(c),
+    //         None => break,
+    //     }
+    //     i = next_i;
+    // }
+
+    // Ok((i, v))
+
+    separated_list1(tag(" "), parse_crate_or_hole)(i)
+}
+
+fn parse_number(i: &str) -> IResult<&str, usize> {
+    map_res(digit1, |s: &str| s.parse::<usize>())(i)
+}
+
+// convert numbers to indexes
+fn parse_pile_number(i: &str) -> IResult<&str, usize> {
+    map(parse_number, |i| i - 1)(i)
+}
+
+fn parse_instruction(i: &str) -> IResult<&str, Instruction> {
+    map(
+        tuple((
+            preceded(tag("move "), parse_number),
+            preceded(tag(" from "), parse_pile_number),
+            preceded(tag(" to "), parse_pile_number),
+        )),
+        |(quantity, src, dst)| Instruction { quantity, src, dst },
+    )(i)
+}
+
+fn transpose_reverse<T>(v: Vec<Vec<Option<T>>>) -> Vec<Vec<T>> {
+    assert!(!v.is_empty());
+
+    let len = v[0].len();
+    let mut iters: Vec<_> = v.into_iter().map(|n| n.into_iter()).collect();
+
+    (0..len)
+        .map(|_| {
+            // trading extra memory usage now for less allocations later
+            let mut v = Vec::with_capacity(256);
+            v.extend(iters.iter_mut().rev().filter_map(|n| n.next().unwrap()));
+            v
+        })
+        .collect()
+}
+
+fn functional_style() -> color_eyre::Result<()> {
+    let mut lines = include_str!("../input.txt").lines();
+
+    let crate_lines: Vec<_> = (&mut lines)
+        .map_while(|line| {
+            all_consuming(parse_crate_line)(line)
+                .finish()
+                .ok()
+                .map(|(_, line)| line)
+        })
+        .collect();
+
+    // consume the empty line between the stack config
+    // and the instructions
+    assert!(lines.next().unwrap().is_empty());
+
+    let mut piles = Piles(transpose_reverse(crate_lines));
+    let mut piles_9001 = piles.clone();
+    let mut piles_9001_smallvec = piles.clone();
+    println!("Piles:\n{piles:?}");
+
+    let instructions = lines.map(|line| all_consuming(parse_instruction)(line).finish().unwrap().1);
+
+    // for allocation tracking only
+    let iat = InstructionApplicationType::Type_9001_smallVec;
+
+    AllocationRegistry::set_global_tracker(StdoutTracker)
+        .expect("no other global tracker should be set yet");
+
+    AllocationRegistry::enable_tracking();
+    match iat {
+        InstructionApplicationType::Type_9000 => {
+            for i in instructions {
+                piles.apply_9000(&i);
+            }
+        }
+        InstructionApplicationType::Type_9001 => {
+            for i in instructions {
+                piles_9001.apply_9001(&i);
+            }
+        }
+
+        InstructionApplicationType::Type_9001_smallVec => {
+            for i in instructions {
+                piles_9001_smallvec.apply_9001_smallvec(&i);
+            }
+        }
+    }
+    println!("Allocations with {iat:?}:");
+    AllocationRegistry::disable_tracking();
+
+    // AllocationRegistry::enable_tracking();
+    // for i in instructions_9001 {
+    //     piles_9001.apply_9001(&i);
+    // }
+    // println!("Allocations:");
+    // AllocationRegistry::disable_tracking();
+
+    // AllocationRegistry::enable_tracking();
+    // for i in instructions_9001_small_vec {
+    //     piles_9001_smallvec.apply_9001_smallvec(&i);
+    // }
+    // println!("Allocations:");
+    // AllocationRegistry::disable_tracking();
+
+    println!("Piles 9000 after applying all the instructions:\n{piles:?}");
+
+    println!(
+        "answer = {}",
+        piles.0.iter().map(|pile| pile.last().unwrap()).join("")
+    );
+
+    println!("Piles 9001 after applying all the instructions:\n{piles_9001:?}");
+
+    println!(
+        "answer = {}",
+        piles_9001
+            .0
+            .iter()
+            .map(|pile| pile.last().unwrap())
+            .join("")
+    );
+
+    println!(
+        "Piles 9001 with SmallVec after applying all the instructions:\n{piles_9001_smallvec:?}"
+    );
+
+    println!(
+        "answer = {}",
+        piles_9001_smallvec
+            .0
+            .iter()
+            .map(|pile| pile.last().unwrap())
+            .join("")
+    );
+
+    println!("The piles and answers might be incorrect as *ONLY* the pile of the selected type is actually being applied!");
+
+    Ok(())
+}
 
 #[derive(Clone, Debug)]
 struct Stack {
@@ -149,7 +459,7 @@ impl MoveInstruction {
         MoveInstruction { count, from, to }
     }
 }
-fn main() {
+fn imperative_style() -> color_eyre::Result<()> {
     let input_str = "    [D]    
 [N] [C]    
 [Z] [M] [P]
@@ -223,4 +533,14 @@ move 1 from 1 to 2";
         "Crates on top after applying all the instructions:\n{:#?}",
         crates_on_top
     );
+
+    Ok(())
+}
+
+fn main() -> color_eyre::Result<()> {
+    imperative_style()?;
+
+    functional_style()?;
+
+    Ok(())
 }
