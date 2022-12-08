@@ -1,5 +1,6 @@
-// use std::fs;
-use fs_err as fs;
+use std::fs;
+
+use color_eyre::eyre::Context;
 
 #[derive(Debug)]
 struct Elf {
@@ -33,13 +34,16 @@ impl std::fmt::Debug for PathedIoError {
     }
 }
 
-fn read_input(path: String) -> Result<String, std::io::Error> {
-    fs::read_to_string(path)
+fn read_input(path: String) -> color_eyre::Result<String> {
+    let input = fs::read_to_string(path).wrap_err("reading input file")?;
+    Ok(input)
 }
-fn main() {
+fn main() -> color_eyre::Result<()> {
+    color_eyre::install()?;
+
     let input_filename = String::from("input2.txt");
 
-    let input = read_input(input_filename).unwrap();
+    let input = read_input(input_filename)?;
 
     let lines = input.lines();
 
@@ -93,4 +97,6 @@ fn main() {
         total_calories += calories;
     }
     println!("Total calories: {}", total_calories);
+
+    Ok(())
 }
