@@ -1,4 +1,5 @@
 use std::cmp::Reverse;
+use std::collections::BinaryHeap;
 use std::fs;
 
 use color_eyre::eyre::Context;
@@ -118,6 +119,33 @@ fn puzzle_2_with_iterators_k_smallest() -> color_eyre::Result<usize> {
 
     Ok(sum_top_3_calories)
 }
+
+// this stores only the largest three values at all times
+fn puzzle_2_with_binary_heap() -> color_eyre::Result<usize> {
+    let mut group_sums = include_str!("../input.txt")
+        .lines()
+        .map(|v| v.parse::<usize>().ok())
+        .batching(|it| {
+            it.fold_while(None, |acc: Option<usize>, v| match v {
+                Some(v) => FoldWhile::Continue(Some(acc.unwrap_or_default() + v)),
+                None => FoldWhile::Done(acc),
+            })
+            .into_inner()
+        })
+        .map(Reverse);
+
+    let mut heap = BinaryHeap::new();
+    for init in (&mut group_sums).take(3) {
+        heap.push(init);
+    }
+    for rest in group_sums {
+        heap.push(rest);
+        heap.pop();
+    }
+
+    let sum_top_3_calories = heap.into_iter().map(|Reverse(v)| v).sum::<usize>();
+    Ok(sum_top_3_calories)
+}
 fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
 
@@ -137,6 +165,9 @@ fn main() -> color_eyre::Result<()> {
     println!("Sum of top 3 calories: {}", sum_top_3_calories);
 
     let sum_top_3_calories = puzzle_2_with_iterators_k_smallest()?;
+    println!("Sum of top 3 calories: {}", sum_top_3_calories);
+
+    let sum_top_3_calories = puzzle_2_with_binary_heap()?;
     println!("Sum of top 3 calories: {}", sum_top_3_calories);
 
     Ok(())
