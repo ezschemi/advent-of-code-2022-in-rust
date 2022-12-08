@@ -1,7 +1,9 @@
+use std::cmp::Reverse;
 use std::fs;
 
 use color_eyre::eyre::Context;
 
+use itertools::FoldWhile;
 use itertools::Itertools;
 
 fn read_input(path: String) -> color_eyre::Result<String> {
@@ -77,6 +79,45 @@ fn with_iterators_coalesce() -> color_eyre::Result<usize> {
 
     Ok(max_calories)
 }
+
+fn puzzle_2_with_iterators_coalesce() -> color_eyre::Result<usize> {
+    let sum_top_3_calories = include_str!("../input.txt")
+        .lines()
+        .map(|v| v.parse::<usize>().ok())
+        .coalesce(|a, b| match (a, b) {
+            (None, None) => Ok(None),
+            (None, Some(b)) => Ok(Some(b)),
+            (Some(a), Some(b)) => Ok(Some(a + b)),
+            (Some(a), None) => Err((Some(a), None)),
+        })
+        .flatten()
+        .sorted_by_key(|&v| std::cmp::Reverse(v))
+        .take(3)
+        .sum::<usize>();
+
+    Ok(sum_top_3_calories)
+}
+
+fn puzzle_2_with_iterators_k_smallest() -> color_eyre::Result<usize> {
+    let sum_top_3_calories = include_str!("../input.txt")
+        .lines()
+        .map(|v| v.parse::<usize>().ok())
+        .batching(|it| {
+            it.fold_while(None, |acc: Option<usize>, v| match v {
+                Some(v) => FoldWhile::Continue(Some(acc.unwrap_or_default() + v)),
+                None => FoldWhile::Done(acc),
+            })
+            .into_inner()
+        })
+        // this turns k_smallest into k_largest
+        .map(Reverse)
+        .k_smallest(3)
+        // strip off the Reverse to sum up things
+        .map(|x| x.0)
+        .sum::<usize>();
+
+    Ok(sum_top_3_calories)
+}
 fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
 
@@ -91,6 +132,12 @@ fn main() -> color_eyre::Result<()> {
 
     let max_calories = with_iterators_coalesce()?;
     println!("Max calories: {}", max_calories);
+
+    let sum_top_3_calories = puzzle_2_with_iterators_coalesce()?;
+    println!("Sum of top 3 calories: {}", sum_top_3_calories);
+
+    let sum_top_3_calories = puzzle_2_with_iterators_k_smallest()?;
+    println!("Sum of top 3 calories: {}", sum_top_3_calories);
 
     Ok(())
 }
