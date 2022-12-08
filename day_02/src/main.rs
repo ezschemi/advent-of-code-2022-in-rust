@@ -13,15 +13,37 @@ impl TryFrom<char> for Move {
 
     fn try_from(value: char) -> Result<Self, Self::Error> {
         match value {
-            'A' | 'X' => Ok(Self::Rock),
-            'B' | 'Y' => Ok(Self::Paper),
-            'C' | 'Z' => Ok(Self::Scissors),
+            'A' => Ok(Self::Rock),
+            'B' => Ok(Self::Paper),
+            'C' => Ok(Self::Scissors),
             _ => Err(color_eyre::eyre::eyre!("not a valid move: {value:?}")),
         }
     }
 }
 
 impl Move {
+    const ALL_MOVES: [Move; 3] = [Move::Rock, Move::Paper, Move::Scissors];
+
+    fn winning_move(self) -> Self {
+        Self::ALL_MOVES
+            .iter()
+            .copied()
+            .find(|m| m.beats(self))
+            .expect("at least one move needs to beat me.")
+    }
+
+    fn losing_move(self) -> Self {
+        Self::ALL_MOVES
+            .iter()
+            .copied()
+            .find(|&m| self.beats(m))
+            .expect("at least one move needs to beat me.")
+    }
+
+    fn drawing_move(self) -> Self {
+        self
+    }
+
     fn inherent_points(self) -> usize {
         match self {
             Move::Rock => 1,
@@ -43,7 +65,7 @@ impl Move {
         if self.beats(opponents_play) {
             Outcome::Win
         } else if opponents_play.beats(self) {
-            Outcome::Lose
+            Outcome::Loss
         } else {
             Outcome::Draw
         }
@@ -51,9 +73,9 @@ impl Move {
 }
 #[derive(Copy, Clone, Debug)]
 enum Outcome {
-    Win,
-    Lose,
+    Loss,
     Draw,
+    Win,
 }
 
 impl Outcome {
@@ -61,7 +83,28 @@ impl Outcome {
         match self {
             Outcome::Win => 6,
             Outcome::Draw => 3,
-            Outcome::Lose => 0,
+            Outcome::Loss => 0,
+        }
+    }
+
+    fn matching_move(self, opponents_play: Move) -> Move {
+        match self {
+            Outcome::Win => opponents_play.winning_move(),
+            Outcome::Draw => opponents_play.drawing_move(),
+            Outcome::Loss => opponents_play.losing_move(),
+        }
+    }
+}
+
+impl TryFrom<char> for Outcome {
+    type Error = color_eyre::Report;
+
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        match value {
+            'X' => Ok(Outcome::Loss),
+            'Y' => Ok(Outcome::Draw),
+            'Z' => Ok(Outcome::Win),
+            _ => Err(color_eyre::eyre::eyre!("not a valid outcome: {value:?}")),
         }
     }
 }
@@ -83,13 +126,17 @@ impl FromStr for Round {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut chars = s.chars();
 
-        let (Some(opponents_play), Some(' '), Some(my_play), None) = (chars.next(), chars.next(), chars.next(), chars.next()) else {
+        let (Some(opponents_play), Some(' '), Some(outcome), None) = (chars.next(), chars.next(), chars.next(), chars.next()) else {
             return Err(color_eyre::eyre::eyre!("expected <theirs>SP<ours>EOF, got {s:?}"));
         };
 
+        let opponents_play = Move::try_from(opponents_play)?;
+        let outcome = Outcome::try_from(outcome)?;
+        let my_play = outcome.matching_move(opponents_play);
+
         Ok(Self {
-            opponents_play: opponents_play.try_into()?,
-            my_play: my_play.try_into()?,
+            opponents_play,
+            my_play,
             score: 0,
         })
     }
@@ -213,13 +260,13 @@ impl Round {
             _ => unreachable!(),
         };
         let outcome = match char_outcome {
-            'X' => Outcome::Lose,
+            'X' => Outcome::Loss,
             'Y' => Outcome::Draw,
             'Z' => Outcome::Win,
             _ => unreachable!(),
         };
         let my_play = match outcome {
-            Outcome::Lose => {
+            Outcome::Loss => {
                 if opponents_play == Move::Rock {
                     Move::Scissors
                 } else if opponents_play == Move::Paper {
