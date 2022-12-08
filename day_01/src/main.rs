@@ -1,4 +1,6 @@
-use std::{fs, iter::Sum};
+// use std::fs;
+use fs_err as fs;
+
 #[derive(Debug)]
 struct Elf {
     calories: u32,
@@ -11,12 +13,35 @@ impl Elf {
         }
     }
 }
+
+struct PathedIoError {
+    path: String,
+    inner: std::io::Error,
+}
+
+// could also do #[derive(Debug)]
+impl std::fmt::Debug for PathedIoError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // could do this:
+        // f.debug_struct("PathedIoError")
+        //     .field("path", &self.path)
+        //     .field("inner", &self.inner)
+        //     .finish()
+
+        // o this:
+        write!(f, "for file {:?}: {}", self.path, self.inner)
+    }
+}
+
+fn read_input(path: String) -> Result<String, std::io::Error> {
+    fs::read_to_string(path)
+}
 fn main() {
-    let input_filename = String::from("input.txt");
+    let input_filename = String::from("input2.txt");
 
-    let content = fs::read_to_string(&input_filename).unwrap();
+    let input = read_input(input_filename).unwrap();
 
-    let lines = content.lines();
+    let lines = input.lines();
 
     let mut elves = Vec::new();
 
