@@ -1,4 +1,8 @@
+use std::collections::HashSet;
 use std::fs;
+
+use item::Item;
+use itertools::Itertools;
 
 #[derive(Debug)]
 struct Rucksack {
@@ -101,7 +105,102 @@ impl Rucksack {
         self.priority
     }
 }
-fn main() {
+
+mod item {
+    #[repr(transparent)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+    pub(crate) struct Item(u8);
+
+    impl TryFrom<u8> for Item {
+        type Error = color_eyre::Report;
+
+        fn try_from(value: u8) -> Result<Self, Self::Error> {
+            match value {
+                b'a'..=b'z' | b'A'..=b'Z' => Ok(Item(value)),
+                _ => Err(color_eyre::eyre::eyre!("Invalid item: {}", value as char)),
+            }
+        }
+    }
+
+    impl std::fmt::Debug for Item {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            // f.debug_tuple("Item").field(&self.0).finish()
+            write!(f, "{}", self.0 as char)
+        }
+    }
+
+    impl Item {
+        pub(crate) fn priority(self) -> usize {
+            match self {
+                Item(b'a'..=b'z') => 1 + (self.0 - b'a') as usize,
+                Item(b'A'..=b'Z') => 27 + (self.0 - b'A') as usize,
+                _ => unreachable!(),
+            }
+        }
+    }
+}
+
+fn more_functional_style() -> color_eyre::Result<()> {
+    let mut total_priority = 0;
+
+    for line in include_str!("../input.txt").lines() {
+        let (first, second) = line.split_at(line.len() / 2);
+
+        let first_compartments_items = first
+            .bytes()
+            .map(Item::try_from)
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let dupe_priority = second
+            .bytes()
+            .map(Item::try_from)
+            .find_map(|item| {
+                item.ok().and_then(|item| {
+                    first_compartments_items
+                        .iter()
+                        // the iterator gives &Item, but I need Item.
+                        // Item has the Copy trait, so copy it here
+                        .copied()
+                        // find gives an &Item, but I need Item.
+                        // so destructure the reference here.
+                        .find(|&first_item| first_item == item)
+                })
+            })
+            .expect("there should be exactly one duplicate item")
+            .priority();
+
+        total_priority += dupe_priority;
+    }
+
+    println!("Total priority: {}", total_priority);
+
+    Ok(())
+}
+
+fn puzzle_2_functional_style() -> color_eyre::Result<()> {
+    let rucksacks = include_str!("../input.txt").lines().map(|line| {
+        line.bytes()
+            .map(Item::try_from)
+            .collect::<Result<HashSet<_>, _>>()
+    });
+
+    let sum = itertools::process_results(rucksacks, |rs| {
+        rs.tuples()
+            .map(|(a, b, c)| {
+                a.iter()
+                    .copied()
+                    .find(|item| b.contains(item) && c.contains(item))
+                    .map(|item| item.priority())
+                    .unwrap_or_default()
+            })
+            .sum::<usize>()
+    })?;
+    println!("Puzzle 2: {}", sum);
+
+    Ok(())
+}
+
+fn imperative_style() -> color_eyre::Result<()> {
     let lines = vec![
         "vJrwpWtwJgWrhcsFMMfFFhFp",
         "jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL",
@@ -148,4 +247,15 @@ fn main() {
 
     let sum_group_priorities: usize = elf_groups.iter().map(|g| g.get_priority()).sum();
     println!("Sum of group priorities: {}", sum_group_priorities);
+
+    Ok(())
+}
+fn main() -> color_eyre::Result<()> {
+    imperative_style()?;
+
+    more_functional_style()?;
+
+    puzzle_2_functional_style()?;
+
+    Ok(())
 }
