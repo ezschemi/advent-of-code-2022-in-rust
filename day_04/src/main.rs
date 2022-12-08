@@ -1,4 +1,107 @@
 use std::fs;
+use std::ops::RangeInclusive;
+
+use itertools::Itertools;
+
+// this adds a new method to existing types, in this case the "Range"
+trait RangeInclusiveExt {
+    fn contains_range(&self, other: &Self) -> bool;
+
+    // can supply a default implementation
+    fn contains_or_is_contained(&self, other: &Self) -> bool {
+        self.contains_range(other) || other.contains_range(self)
+    }
+
+    fn overlaps(&self, other: &Self) -> bool;
+
+    fn overlaps_or_is_overlapped(&self, other: &Self) -> bool {
+        self.overlaps(other) || other.overlaps(self)
+    }
+}
+
+impl<T> RangeInclusiveExt for RangeInclusive<T>
+where
+    T: PartialOrd,
+{
+    fn contains_range(&self, other: &Self) -> bool {
+        self.contains(other.start()) && self.contains(other.end())
+    }
+
+    fn overlaps(&self, other: &Self) -> bool {
+        self.contains(other.start()) || self.contains(other.end())
+    }
+}
+fn contains_range(bigger: RangeInclusive<usize>, smaller: RangeInclusive<usize>) -> bool {
+    bigger.contains(smaller.start()) && bigger.contains(smaller.end())
+}
+
+fn more_functional_style() -> color_eyre::Result<()> {
+    for i in 2..=4 {
+        dbg!(i);
+    }
+
+    let range = 2..=4;
+    dbg!(range.contains(&2));
+    dbg!(range.contains(&3));
+    dbg!(range.contains(&4));
+    dbg!(range.contains(&5));
+
+    dbg!(contains_range(2..=4, 6..=8));
+    dbg!(contains_range(6..=8, 2..=4));
+    dbg!(contains_range(4..=6, 6..=6));
+
+    dbg!((2..=4).contains_range(&(6..=8)));
+    dbg!((6..=8).contains_range(&(2..=4)));
+    dbg!((4..=6).contains_range(&(6..=6)));
+
+    let redundant = include_str!("../input.txt")
+        .lines()
+        .map(|line| {
+            line.split(',')
+                .map(|range| {
+                    range
+                        .split('-')
+                        .map(|n| {
+                            n.parse::<usize>()
+                                .expect("range start and end should be a u32")
+                        })
+                        .collect_tuple::<(usize, usize)>()
+                        .map(|(start, end)| start..=end)
+                        .expect("Each range should have a start and an end")
+                })
+                .collect_tuple::<(_, _)>()
+                .expect("Each line must have a pair of ranges")
+        })
+        .filter(|(a, b)| a.contains_or_is_contained(b))
+        .count();
+
+    println!("n_sections_fully_contained: {redundant}");
+
+    let n_sections_overlapping = include_str!("../input.txt")
+        .lines()
+        .map(|line| {
+            line.split(',')
+                .map(|range| {
+                    range
+                        .split('-')
+                        .map(|n| {
+                            n.parse::<usize>()
+                                .expect("range start and end should be a u32")
+                        })
+                        .collect_tuple::<(usize, usize)>()
+                        .map(|(start, end)| start..=end)
+                        .expect("Each range should have a start and an end")
+                })
+                .collect_tuple::<(_, _)>()
+                .expect("Each line must have a pair of ranges")
+        })
+        .filter(|(a, b)| a.overlaps_or_is_overlapped(b))
+        .count();
+
+    println!("n_sections_overlapping: {n_sections_overlapping}");
+
+    Ok(())
+}
 #[derive(Debug)]
 struct SectionAssignments {
     start_0: usize,
@@ -84,7 +187,8 @@ impl SectionAssignments {
         false
     }
 }
-fn main() {
+
+fn imperative_style() -> color_eyre::Result<()> {
     let lines = vec![
         "2-4,6-8", "2-3,4-5", "5-7,7-9", "2-8,3-7", "6-6,4-6", "2-6,4-8",
     ];
@@ -121,4 +225,15 @@ fn main() {
 
     println!("n_sections_fully_contained: {}", n_sections_fully_contained);
     println!("n_sections_overlapping: {}", n_sections_overlapping);
+
+    Ok(())
+}
+fn main() -> color_eyre::Result<()> {
+    color_eyre::install()?;
+
+    imperative_style()?;
+
+    more_functional_style()?;
+
+    Ok(())
 }
