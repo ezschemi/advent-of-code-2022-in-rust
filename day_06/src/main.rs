@@ -1,3 +1,5 @@
+use itertools::Itertools;
+use std::collections::HashSet;
 use std::fs;
 
 // returns true if at least one character is found multiple times in v
@@ -58,7 +60,7 @@ fn find_start_of_message_marker(s: &str) -> usize {
     find_marker_by_distinct_chars(s, 14)
 }
 
-fn main() {
+fn imperative_style() -> color_eyre::Result<()> {
     let lines_start_of_packets = vec![
         "bvwbjplbgvbhsrlpgdmjqwftvncz",
         "nppdvjthqldpwncqszvftbrmjlhg",
@@ -87,5 +89,44 @@ fn main() {
         let start_of_message = find_start_of_message_marker(line);
 
         println!("Start of Message for {}: {}", line, start_of_message);
+    }
+
+    Ok(())
+}
+
+fn find_marker(input: &str, window_size: usize) -> Option<usize> {
+    input
+        .as_bytes()
+        .windows(window_size)
+        .position(|window| window.iter().unique().count() == window_size)
+        .map(|pos| pos + window_size)
+}
+
+fn functional_style() -> color_eyre::Result<()> {
+    let marker = find_marker(include_str!("../input.txt"), 4).unwrap();
+    println!("Marker: {marker}");
+    Ok(())
+}
+
+fn main() -> color_eyre::Result<()> {
+    imperative_style()?;
+
+    functional_style()?;
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::find_marker;
+    use test_case::test_case;
+
+    #[test_case(7, "mjqjpqmgbljsphdztnvjfqwrcgsmlb", 4)]
+    #[test_case(5, "bvwbjplbgvbhsrlpgdmjqwftvncz", 4)]
+    #[test_case(6, "nppdvjthqldpwncqszvftbrmjlhg", 4)]
+    #[test_case(10, "nznrnfrfntjfmvfwmzdfjlvtqnbhcprsg", 4)]
+    #[test_case(11, "zcfzfwzzqfrljwzlrfnpqdbhtmscgvjw", 4)]
+    fn test_find_marker(index: usize, input: &str, window_size: usize) {
+        assert_eq!(Some(index), find_marker(input, window_size));
     }
 }
