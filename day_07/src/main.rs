@@ -1,7 +1,10 @@
-use std::collections::HashMap;
-use std::{fs, usize};
+use std::cell::{Ref, RefCell};
+use std::collections::{BTreeMap, HashMap};
+use std::rc::Rc;
+use std::{fmt, usize};
 
 use camino::Utf8PathBuf;
+use indexmap::IndexMap;
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -162,18 +165,55 @@ fn parse_input_line(i: &str) -> IResult<&str, InputLine> {
     ))(i)
 }
 
-#[derive(Debug, Default)]
+type TreeNodeHandle = Rc<RefCell<TreeNode>>;
+
+#[derive(Default)]
 struct TreeNode {
     size: usize,
-    children: HashMap<Utf8PathBuf, TreeNode>,
+    children: IndexMap<Utf8PathBuf, TreeNodeHandle>,
+    parent: Option<TreeNodeHandle>,
+}
+
+impl fmt::Debug for TreeNode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TreeNode")
+            .field("size", &self.size)
+            .field("children", &self.children)
+            .finish()
+    }
+}
+
+struct PrettyTreeNode<'a>(&'a TreeNodeHandle);
+
+impl<'a> fmt::Debug for PrettyTreeNode<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let this = self.0.borrow();
+        if this.size == 0 {
+            writeln!(f, "(dir)")?;
+        } else {
+            writeln!(f, "(file, size={})", this.size)?;
+        }
+
+        for (name, child) in &this.children {
+            for (index, line) in format!("{:?}", PrettyTreeNode(child)).lines().enumerate() {
+                if index == 0 {
+                    writeln!(f, "{}: {}", name, line)?;
+                } else {
+                    writeln!(f, "  {}", line)?;
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 fn main() -> color_eyre::Result<()> {
     let lines = include_str!("../input_small.txt")
         .lines()
         .map(|line| all_consuming(parse_input_line)(line).unwrap().1);
 
-    let mut root = TreeNode::default();
-    let mut node = &mut root;
+    let mut root = Rc::new(RefCell::new(TreeNode::default()));
+    let mut node = root.clone();
 
     for line in lines {
         println!("{line:?}");
@@ -190,26 +230,30 @@ fn main() -> color_eyre::Result<()> {
                         // only appears once at the beginning of the input.
                     }
                     ".." => {
-                        todo!("go to the parent.");
+                        let parent = node.borrow().parent.clone().unwrap();
+                        node = parent;
                     }
                     _ => {
-                        node = node.children.entry(path).or_default();
-                        todo!("handle these other paths.");
+                        let child = node.borrow_mut().children.entry(path).or_default().clone();
+                        node = child;
                     }
                 },
             },
             InputLine::Entry(entry) => match entry {
                 Entry::Dir(dir) => {
-                    node.children.entry(dir).or_default();
+                    let entry = node.borrow_mut().children.entry(dir).or_default().clone();
+                    entry.borrow_mut().parent = Some(node.clone());
                 }
                 Entry::File(size, path) => {
-                    node.children.entry(path).or_default().size = size as usize;
+                    let entry = node.borrow_mut().children.entry(path).or_default().clone();
+                    entry.borrow_mut().size = size as usize;
+                    entry.borrow_mut().parent = Some(node.clone());
                 }
             },
         }
     }
 
-    println!("{node:?}");
+    println!("My Tree:\n{:#?}", PrettyTreeNode(&root));
 
     Ok(())
 }
