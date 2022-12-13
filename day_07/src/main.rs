@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::{fs, usize};
 
 use camino::Utf8PathBuf;
@@ -161,14 +162,54 @@ fn parse_input_line(i: &str) -> IResult<&str, InputLine> {
     ))(i)
 }
 
+#[derive(Debug, Default)]
+struct TreeNode {
+    size: usize,
+    children: HashMap<Utf8PathBuf, TreeNode>,
+}
 fn main() -> color_eyre::Result<()> {
     let lines = include_str!("../input_small.txt")
         .lines()
         .map(|line| all_consuming(parse_input_line)(line).unwrap().1);
 
+    let mut root = TreeNode::default();
+    let mut node = &mut root;
+
     for line in lines {
-        println!("{:?}", line);
+        println!("{line:?}");
+
+        match line {
+            InputLine::Command(cmd) => match cmd {
+                Command::Ls => {
+                    println!("ls");
+                }
+                Command::Cd(path) => match path.as_str() {
+                    "/" => {
+                        // ignore this command, we are already at the FS root.
+                        // works for this puzzle *only* as the "cd /"-command
+                        // only appears once at the beginning of the input.
+                    }
+                    ".." => {
+                        todo!("go to the parent.");
+                    }
+                    _ => {
+                        node = node.children.entry(path).or_default();
+                        todo!("handle these other paths.");
+                    }
+                },
+            },
+            InputLine::Entry(entry) => match entry {
+                Entry::Dir(dir) => {
+                    node.children.entry(dir).or_default();
+                }
+                Entry::File(size, path) => {
+                    node.children.entry(path).or_default().size = size as usize;
+                }
+            },
+        }
     }
+
+    println!("{node:?}");
 
     Ok(())
 }
