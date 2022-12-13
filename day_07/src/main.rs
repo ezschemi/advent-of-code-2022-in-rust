@@ -174,6 +174,40 @@ struct TreeNode {
     parent: Option<TreeNodeHandle>,
 }
 
+impl TreeNode {
+    fn is_dir(&self) -> bool {
+        self.size == 0 && !self.children.is_empty()
+    }
+
+    fn total_size(&self) -> u64 {
+        self.children
+            .values()
+            .map(|child| child.borrow().total_size())
+            .sum::<u64>()
+            + self.size as u64
+    }
+}
+
+fn all_dirs(node: TreeNodeHandle) -> Box<dyn Iterator<Item = TreeNodeHandle>> {
+    #[allow(clippy::needless_collect)]
+    let children = node.borrow().children.values().cloned().collect::<Vec<_>>();
+
+    Box::new(
+        std::iter::once(node).chain(
+            children
+                .into_iter()
+                .filter_map(|c| {
+                    if c.borrow().is_dir() {
+                        Some(all_dirs(c))
+                    } else {
+                        None
+                    }
+                })
+                .flatten(),
+        ),
+    )
+}
+
 impl fmt::Debug for TreeNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("TreeNode")
@@ -254,6 +288,16 @@ fn main() -> color_eyre::Result<()> {
     }
 
     println!("My Tree:\n{:#?}", PrettyTreeNode(&root));
+
+    let sum = all_dirs(root)
+        .map(|dir| dir.borrow().total_size())
+        .filter(|&size| size <= 100_000)
+        .inspect(|size| {
+            dbg!(size);
+        })
+        .sum::<u64>();
+
+    dbg!(sum);
 
     Ok(())
 }
