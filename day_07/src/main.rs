@@ -1,10 +1,9 @@
-use std::cell::{Ref, RefCell};
-use std::collections::{BTreeMap, HashMap};
-use std::rc::Rc;
-use std::{fmt, usize};
+use id_tree::Node;
+use id_tree::Tree;
 
 use camino::Utf8PathBuf;
-use indexmap::IndexMap;
+use id_tree::InsertBehavior;
+
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -14,81 +13,6 @@ use nom::{
     sequence::separated_pair,
     IResult,
 };
-
-#[derive(Debug)]
-enum FsEntryType {
-    File,
-    Directory,
-}
-#[derive(Debug)]
-struct FSEntryInfo {
-    name: String,
-    size: usize,
-    fs_type: FsEntryType,
-}
-
-impl FSEntryInfo {
-    pub fn new(name: String, size: usize, fs_type: FsEntryType) -> Self {
-        FSEntryInfo {
-            name,
-            size,
-            fs_type,
-        }
-    }
-}
-
-#[derive(Debug)]
-struct FsInfo {
-    info: Vec<FSEntryInfo>,
-}
-
-impl FsInfo {
-    pub fn new() -> Self {
-        FsInfo { info: Vec::new() }
-    }
-
-    pub fn add_dir(self: &mut Self, name: &str) {
-        self.info.push(FSEntryInfo {
-            name: name.to_string(),
-            size: 0,
-            fs_type: FsEntryType::Directory,
-        });
-    }
-}
-fn process_commands_and_outputs(lines: &Vec<&str>) {
-    println!("Processing {} lines.", lines.len());
-
-    let mut fs_info = FsInfo::new();
-
-    for line in lines {
-        if line.starts_with("$") {
-            // command
-            let tokens = line.split_whitespace().collect::<Vec<&str>>();
-            let cmd = tokens[1];
-
-            match cmd {
-                "cd" => {
-                    let target_dir = tokens[2];
-                    println!("cd into {}", target_dir);
-                    if target_dir == ".." {
-                    } else {
-                        fs_info.add_dir(target_dir);
-                    }
-                }
-                "ls" => {
-                    println!("ls");
-                }
-                _ => {
-                    panic!("Unsupported command: {} from:\n{}", cmd, line);
-                }
-            }
-        } else {
-            // output of the previous command
-        }
-    }
-
-    println!("Fs Tree:\n{:#?}", fs_info);
-}
 
 fn parse_path(i: &str) -> IResult<&str, Utf8PathBuf> {
     map(
@@ -165,92 +89,41 @@ fn parse_input_line(i: &str) -> IResult<&str, InputLine> {
     ))(i)
 }
 
-type TreeNodeHandle = Rc<RefCell<TreeNode>>;
-
-#[derive(Default)]
-struct TreeNode {
-    size: usize,
-    children: IndexMap<Utf8PathBuf, TreeNodeHandle>,
-    parent: Option<TreeNodeHandle>,
+#[derive(Debug)]
+struct FsEntry {
+    path: Utf8PathBuf,
+    size: u64,
 }
 
-impl TreeNode {
-    fn is_dir(&self) -> bool {
-        self.size == 0 && !self.children.is_empty()
+fn total_size(tree: &Tree<FsEntry>, node: &Node<FsEntry>) -> color_eyre::Result<u64> {
+    let mut total = node.data().size;
+    for child in node.children() {
+        total += total_size(tree, tree.get(child)?)?;
     }
-
-    fn total_size(&self) -> u64 {
-        self.children
-            .values()
-            .map(|child| child.borrow().total_size())
-            .sum::<u64>()
-            + self.size as u64
-    }
+    Ok(total)
 }
 
-fn all_dirs(node: TreeNodeHandle) -> Box<dyn Iterator<Item = TreeNodeHandle>> {
-    #[allow(clippy::needless_collect)]
-    let children = node.borrow().children.values().cloned().collect::<Vec<_>>();
-
-    Box::new(
-        std::iter::once(node).chain(
-            children
-                .into_iter()
-                .filter_map(|c| {
-                    if c.borrow().is_dir() {
-                        Some(all_dirs(c))
-                    } else {
-                        None
-                    }
-                })
-                .flatten(),
-        ),
-    )
-}
-
-impl fmt::Debug for TreeNode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("TreeNode")
-            .field("size", &self.size)
-            .field("children", &self.children)
-            .finish()
-    }
-}
-
-struct PrettyTreeNode<'a>(&'a TreeNodeHandle);
-
-impl<'a> fmt::Debug for PrettyTreeNode<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let this = self.0.borrow();
-        if this.size == 0 {
-            writeln!(f, "(dir)")?;
-        } else {
-            writeln!(f, "(file, size={})", this.size)?;
-        }
-
-        for (name, child) in &this.children {
-            for (index, line) in format!("{:?}", PrettyTreeNode(child)).lines().enumerate() {
-                if index == 0 {
-                    writeln!(f, "{}: {}", name, line)?;
-                } else {
-                    writeln!(f, "  {}", line)?;
-                }
-            }
-        }
-
-        Ok(())
-    }
-}
 fn main() -> color_eyre::Result<()> {
-    let lines = include_str!("../input.txt")
+    color_eyre::install().unwrap();
+
+    let lines = include_str!("../input_small.txt")
         .lines()
         .map(|line| all_consuming(parse_input_line)(line).unwrap().1);
 
-    let mut root = Rc::new(RefCell::new(TreeNode::default()));
-    let mut node = root.clone();
+    let mut tree = Tree::<FsEntry>::new();
+
+    let root = tree.insert(
+        Node::new(FsEntry {
+            path: "/".into(),
+            size: 0,
+        }),
+        InsertBehavior::AsRoot,
+    )?;
+
+    let mut current_node = root;
 
     for line in lines {
-        println!("{line:?}");
+        println!("line: {:?}", line);
 
         match line {
             InputLine::Command(cmd) => match cmd {
@@ -259,61 +132,70 @@ fn main() -> color_eyre::Result<()> {
                 }
                 Command::Cd(path) => match path.as_str() {
                     "/" => {
-                        // ignore this command, we are already at the FS root.
-                        // works for this puzzle *only* as the "cd /"-command
-                        // only appears once at the beginning of the input.
+                        // ignore, we are already at the root and
+                        // for this exercise there is only one of these
+                        // commands at the beginning of the input so
+                        // ignoring it works fine.
                     }
                     ".." => {
-                        let parent = node.borrow().parent.clone().unwrap();
-                        node = parent;
+                        current_node = tree.get(&current_node)?.parent().unwrap().clone();
                     }
                     _ => {
-                        let child = node.borrow_mut().children.entry(path).or_default().clone();
-                        node = child;
+                        let node = Node::new(FsEntry {
+                            path: path.clone(),
+                            size: 0,
+                        });
+                        current_node =
+                            tree.insert(node, InsertBehavior::UnderNode(&current_node))?;
                     }
                 },
             },
             InputLine::Entry(entry) => match entry {
-                Entry::Dir(dir) => {
-                    let entry = node.borrow_mut().children.entry(dir).or_default().clone();
-                    entry.borrow_mut().parent = Some(node.clone());
+                Entry::Dir(_) => {
+                    // ignore, this is being handled when processing the "cd" command
                 }
                 Entry::File(size, path) => {
-                    let entry = node.borrow_mut().children.entry(path).or_default().clone();
-                    entry.borrow_mut().size = size as usize;
-                    entry.borrow_mut().parent = Some(node.clone());
+                    let node = Node::new(FsEntry { size, path });
+                    tree.insert(node, InsertBehavior::UnderNode(&current_node))?;
                 }
             },
         }
     }
 
-    println!("My Tree:\n{:#?}", PrettyTreeNode(&root));
+    let mut s = String::new();
+    tree.write_formatted(&mut s)?;
+    println!("Tree:\n{s}");
 
-    // let sum = all_dirs(root)
-    //     .map(|dir| dir.borrow().total_size())
-    //     .filter(|&size| size <= 100_000)
-    //     .inspect(|size| {
-    //         dbg!(size);
-    //     })
-    //     .sum::<u64>();
-
-    // dbg!(sum);
+    let sum = tree
+        .traverse_pre_order(tree.root_node_id().unwrap())?
+        .filter(|node| !node.children().is_empty())
+        .map(|node| total_size(&tree, node).unwrap())
+        .filter(|&size| size <= 100_000)
+        .inspect(|s| {
+            dbg!(s);
+        })
+        .sum::<u64>();
+    dbg!(sum);
 
     let total_space = 70000000_u64;
-    let used_space = root.borrow().total_size();
-    let free_space = total_space.checked_sub(dbg!(used_space)).unwrap();
     let needed_free_space = 30000000_u64;
+
+    let used_space = total_size(&tree, tree.get(tree.root_node_id().unwrap())?)?;
+    let free_space = total_space.checked_sub(dbg!(used_space)).unwrap();
+
     let minimum_space_to_free = needed_free_space.checked_sub(free_space).unwrap();
 
-    let removed_dir_size = all_dirs(root)
-        .map(|dir| dir.borrow().total_size())
+    let size_to_remove = tree
+        .traverse_pre_order(tree.root_node_id().unwrap())?
+        .filter(|node| !node.children().is_empty())
+        .map(|node| total_size(&tree, node).unwrap())
         .filter(|&size| size >= minimum_space_to_free)
-        .inspect(|size| {
-            dbg!(size);
+        .inspect(|s| {
+            dbg!(s);
         })
         .min();
 
-    dbg!(removed_dir_size);
+    dbg!(size_to_remove);
 
     Ok(())
 }
