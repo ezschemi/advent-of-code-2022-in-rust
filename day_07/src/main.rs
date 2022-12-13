@@ -242,7 +242,7 @@ impl<'a> fmt::Debug for PrettyTreeNode<'a> {
     }
 }
 fn main() -> color_eyre::Result<()> {
-    let lines = include_str!("../input_small.txt")
+    let lines = include_str!("../input.txt")
         .lines()
         .map(|line| all_consuming(parse_input_line)(line).unwrap().1);
 
@@ -289,15 +289,31 @@ fn main() -> color_eyre::Result<()> {
 
     println!("My Tree:\n{:#?}", PrettyTreeNode(&root));
 
-    let sum = all_dirs(root)
+    // let sum = all_dirs(root)
+    //     .map(|dir| dir.borrow().total_size())
+    //     .filter(|&size| size <= 100_000)
+    //     .inspect(|size| {
+    //         dbg!(size);
+    //     })
+    //     .sum::<u64>();
+
+    // dbg!(sum);
+
+    let total_space = 70000000_u64;
+    let used_space = root.borrow().total_size();
+    let free_space = total_space.checked_sub(dbg!(used_space)).unwrap();
+    let needed_free_space = 30000000_u64;
+    let minimum_space_to_free = needed_free_space.checked_sub(free_space).unwrap();
+
+    let removed_dir_size = all_dirs(root)
         .map(|dir| dir.borrow().total_size())
-        .filter(|&size| size <= 100_000)
+        .filter(|&size| size >= minimum_space_to_free)
         .inspect(|size| {
             dbg!(size);
         })
-        .sum::<u64>();
+        .min();
 
-    dbg!(sum);
+    dbg!(removed_dir_size);
 
     Ok(())
 }
