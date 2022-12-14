@@ -55,7 +55,7 @@ fn calc_scenic_score(heights: &Vec<Vec<u8>>, tree_x: usize, tree_y: usize) -> us
 
     // check North direction
     let mut n_visible_trees: usize = 0;
-    for y in 0..tree_y {
+    for y in (0..tree_y).rev() {
         let height = heights[y][tree_x] as usize;
 
         n_visible_trees += 1;
@@ -110,7 +110,20 @@ fn calc_scenic_score(heights: &Vec<Vec<u8>>, tree_x: usize, tree_y: usize) -> us
     }
     let scenic_score_east = n_visible_trees;
 
-    scenic_score_north * scenic_score_east * scenic_score_south * scenic_score_west
+    // dbg!(scenic_score_north);
+    // dbg!(scenic_score_east);
+    // dbg!(scenic_score_south);
+    // dbg!(scenic_score_west);
+
+    let scenic_score =
+        scenic_score_north * scenic_score_east * scenic_score_south * scenic_score_west;
+
+    if scenic_score == 1560900 {
+        println!(
+            "score = {scenic_score} = {scenic_score_west} * {scenic_score_east} * {scenic_score_north} * {scenic_score_south} at ({tree_x}, {tree_y})"
+        );
+    }
+    scenic_score
 }
 
 fn convert_input_lines(lines: &Vec<&str>) -> Vec<Vec<u8>> {
@@ -130,13 +143,13 @@ fn convert_input_lines(lines: &Vec<&str>) -> Vec<Vec<u8>> {
     heights
 }
 fn main() {
-    // let lines = vec!["30373", "25512", "65332", "33549", "35390"];
-    // let heights = convert_input_lines(&lines);
-    // let scenic_score = calc_scenic_score(&heights, 2, 1);
-    // println!("scenic_score: {scenic_score}");
+    let lines = vec!["30373", "25512", "65332", "33549", "35390"];
+    let heights = convert_input_lines(&lines);
+    let scenic_score = calc_scenic_score(&heights, 2, 2);
+    println!("scenic_score: {scenic_score}");
 
-    // let scenic_score = calc_scenic_score(&heights, 2, 3);
-    // println!("scenic_score: {scenic_score}");
+    let scenic_score = calc_scenic_score(&heights, 2, 3);
+    println!("scenic_score: {scenic_score}");
 
     let input_file_content = fs::read_to_string("input.txt").unwrap();
     let lines = input_file_content.lines().collect();
@@ -215,8 +228,15 @@ mod tests {
         assert_eq!(should_be_visible, is_visible);
     }
 
-    #[test_case(2, 1, 4)]
-    #[test_case(2, 3, 8)]
+    #[test_case(1, 1, 1*1*1*1)]
+    #[test_case(2, 1, 1*2*2*1)]
+    #[test_case(3, 1, 1*1*1*1)]
+    #[test_case(1, 2, 1*3*2*1)]
+    #[test_case(2, 2, 1*1*1*1)]
+    #[test_case(3, 2, 2*1*1*1)]
+    #[test_case(1, 3, 1*1*1*1)]
+    #[test_case(2, 3, 2*2*1*2)]
+    #[test_case(3, 3, 3*1*1*1)]
     fn test_calc_scenic_score(tree_x: usize, tree_y: usize, expected_scenic_score: usize) {
         let lines = vec!["30373", "25512", "65332", "33549", "35390"];
 
