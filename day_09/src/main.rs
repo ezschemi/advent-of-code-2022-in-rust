@@ -138,8 +138,8 @@ impl Grid {
             tail_pos,
         };
 
-        grid.set(head_pos.0 as usize, head_pos.1 as usize, GridPosition::Head);
         grid.set(tail_pos.0 as usize, tail_pos.1 as usize, GridPosition::Tail);
+        grid.set(head_pos.0 as usize, head_pos.1 as usize, GridPosition::Head);
 
         grid
     }
@@ -167,6 +167,51 @@ impl Grid {
             );
 
             self.head_pos = new_head_pos;
+
+            let delta_head_tail = (
+                self.head_pos.0 - self.tail_pos.0,
+                self.head_pos.1 - self.tail_pos.1,
+            );
+
+            println!("delta_head_tail: {:?}", delta_head_tail);
+
+            if delta_head_tail.0 > 1 || delta_head_tail.1 > 1 {
+                // need to move the tail now too
+                let old_tail_pos = self.tail_pos;
+                let mut new_tail_pos = old_tail_pos.clone();
+
+                if delta_head_tail.0 > 1 {
+                    new_tail_pos.0 += 1;
+                } else if delta_head_tail.0 < 1 {
+                    new_tail_pos.0 -= 1;
+                }
+                if delta_head_tail.1 > 1 {
+                    new_tail_pos.1 += 1;
+                } else if delta_head_tail.1 < 1 {
+                    new_tail_pos.1 -= 1;
+                }
+
+                if new_tail_pos.0 < 0 {
+                    new_tail_pos.0 = 0;
+                }
+
+                if new_tail_pos.1 < 0 {
+                    new_tail_pos.1 = 0;
+                }
+
+                self.set(
+                    old_tail_pos.0 as usize,
+                    old_tail_pos.1 as usize,
+                    GridPosition::Dot,
+                );
+                self.set(
+                    new_tail_pos.0 as usize,
+                    new_tail_pos.1 as usize,
+                    GridPosition::Tail,
+                );
+
+                self.tail_pos = new_tail_pos;
+            }
         }
     }
 }
@@ -176,7 +221,7 @@ fn main() {
 
     println!("Grid:\n{:#?}", grid);
 
-    let lines = include_str!("../input-small.txt").lines().collect();
+    let lines = include_str!("../input-small2.txt").lines().collect();
 
     let instructions = create_instructions(&lines);
 
@@ -197,7 +242,7 @@ mod tests {
     use test_case::test_case;
 
     #[test_case(2, 2)]
-    fn test_head_move_instructions(expected_head_pos_x: usize, expected_head_pos_y: usize) {
+    fn test_head_moving(expected_head_pos_x: usize, expected_head_pos_y: usize) {
         let mut grid = Grid::new();
 
         println!("Grid:\n{:#?}", grid);
@@ -217,5 +262,28 @@ mod tests {
 
         assert_eq!(grid.head_pos.0 as usize, expected_head_pos_x);
         assert_eq!(grid.head_pos.1 as usize, expected_head_pos_y);
+    }
+
+    #[test_case(1, 2)]
+    fn test_tail_moving(expected_tail_pos_x: usize, expected_tail_pos_y: usize) {
+        let mut grid = Grid::new();
+
+        println!("Grid:\n{:#?}", grid);
+
+        let lines = include_str!("../input-small.txt").lines().collect();
+
+        let instructions = create_instructions(&lines);
+
+        println!("Instructions: {}", instructions.len());
+
+        for ins in instructions {
+            println!("Instruction: {:#?}", ins);
+            grid.apply(&ins);
+
+            println!("Grid:\n{:#?}", grid);
+        }
+
+        assert_eq!(grid.tail_pos.0 as usize, expected_tail_pos_x);
+        assert_eq!(grid.tail_pos.1 as usize, expected_tail_pos_y);
     }
 }
