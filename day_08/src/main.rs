@@ -50,6 +50,69 @@ fn is_tree_visible(heights: &Vec<Vec<u8>>, tree_x: usize, tree_y: usize) -> bool
         || max_height_west < tree_height
 }
 
+fn calc_scenic_score(heights: &Vec<Vec<u8>>, tree_x: usize, tree_y: usize) -> usize {
+    let tree_height: usize = heights[tree_y][tree_x] as usize;
+
+    // check North direction
+    let mut n_visible_trees: usize = 0;
+    for y in 0..tree_y {
+        let height = heights[y][tree_x] as usize;
+
+        n_visible_trees += 1;
+
+        if height >= tree_height {
+            // stop here, cant see further than this
+            break;
+        }
+    }
+    let scenic_score_north = n_visible_trees;
+
+    // check South direction
+    let mut n_visible_trees: usize = 0;
+    for y in tree_y + 1..heights.len() {
+        let height = heights[y][tree_x] as usize;
+
+        n_visible_trees += 1;
+
+        if height >= tree_height {
+            // stop here, cant see further than this
+            break;
+        }
+    }
+    let scenic_score_south = n_visible_trees;
+
+    // check West direction
+    let mut n_visible_trees: usize = 0;
+    for x in (0..=tree_x - 1).rev() {
+        let height = heights[tree_y][x] as usize;
+
+        n_visible_trees += 1;
+
+        if height >= tree_height {
+            // stop here, cant see further than this
+            break;
+        }
+    }
+    let scenic_score_west = n_visible_trees;
+
+    // check East direction
+    let row = &heights[tree_y];
+    let mut n_visible_trees: usize = 0;
+    for x in tree_x + 1..row.len() {
+        let height = heights[tree_y][x] as usize;
+
+        n_visible_trees += 1;
+
+        if height >= tree_height {
+            // stop here, cant see further than this
+            break;
+        }
+    }
+    let scenic_score_east = n_visible_trees;
+
+    scenic_score_north * scenic_score_east * scenic_score_south * scenic_score_west
+}
+
 fn convert_input_lines(lines: &Vec<&str>) -> Vec<Vec<u8>> {
     let mut heights: Vec<Vec<u8>> = Vec::new();
 
@@ -68,14 +131,19 @@ fn convert_input_lines(lines: &Vec<&str>) -> Vec<Vec<u8>> {
 }
 fn main() {
     // let lines = vec!["30373", "25512", "65332", "33549", "35390"];
+    // let heights = convert_input_lines(&lines);
+    // let scenic_score = calc_scenic_score(&heights, 2, 1);
+    // println!("scenic_score: {scenic_score}");
 
-    // let lines = include!("../input.txt");
+    // let scenic_score = calc_scenic_score(&heights, 2, 3);
+    // println!("scenic_score: {scenic_score}");
+
     let input_file_content = fs::read_to_string("input.txt").unwrap();
     let lines = input_file_content.lines().collect();
 
     let heights: Vec<Vec<u8>> = convert_input_lines(&lines);
 
-    println!("Lines:\n{:?}", heights);
+    // println!("Lines:\n{:?}", heights);
 
     let mut n_visible_trees = 0;
 
@@ -104,10 +172,26 @@ fn main() {
     let n_trees = heights.len() * heights[0].len();
 
     println!("Out of the {n_trees} trees, {n_visible_trees} are visible.");
+
+    let mut max_scenic_score = 0;
+    // dont check the trees on the borders of the grid, they are always visible
+    for y in 1..heights.len() - 1 {
+        let row = &heights[y];
+        for x in 1..row.len() - 1 {
+            let scenic_score = calc_scenic_score(&heights, x, y);
+
+            if scenic_score > max_scenic_score {
+                max_scenic_score = scenic_score;
+            }
+        }
+    }
+
+    println!("Max Scenic Score: {max_scenic_score}");
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::calc_scenic_score;
     use crate::convert_input_lines;
     use crate::is_tree_visible;
     use test_case::test_case;
@@ -121,7 +205,7 @@ mod tests {
     #[test_case(1, 3, false)]
     #[test_case(2, 3, true)]
     #[test_case(3, 3, false)]
-    fn test_with_sample_input(tree_x: usize, tree_y: usize, should_be_visible: bool) {
+    fn test_is_tree_visibile_at(tree_x: usize, tree_y: usize, should_be_visible: bool) {
         let lines = vec!["30373", "25512", "65332", "33549", "35390"];
 
         let heights: Vec<Vec<u8>> = convert_input_lines(&lines);
@@ -129,5 +213,17 @@ mod tests {
         let is_visible = is_tree_visible(&heights, tree_x, tree_y);
 
         assert_eq!(should_be_visible, is_visible);
+    }
+
+    #[test_case(2, 1, 4)]
+    #[test_case(2, 3, 8)]
+    fn test_calc_scenic_score(tree_x: usize, tree_y: usize, expected_scenic_score: usize) {
+        let lines = vec!["30373", "25512", "65332", "33549", "35390"];
+
+        let heights: Vec<Vec<u8>> = convert_input_lines(&lines);
+
+        let scenic_score = calc_scenic_score(&heights, tree_x, tree_y);
+
+        assert_eq!(expected_scenic_score, scenic_score);
     }
 }
