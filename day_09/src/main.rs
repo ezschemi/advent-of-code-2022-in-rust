@@ -46,6 +46,8 @@ struct Grid {
     grid: Vec<Vec<GridPosition>>,
     head_pos: (isize, isize),
     tail_pos: (isize, isize),
+
+    all_tail_positions: Vec<(isize, isize)>,
 }
 
 impl fmt::Debug for Grid {
@@ -75,6 +77,10 @@ impl Grid {
     }
     pub fn set(&mut self, x: usize, y: usize, p: GridPosition) {
         self.grid[y][x] = p;
+    }
+
+    fn store_tail_position(&mut self, pos: (isize, isize)) {
+        self.all_tail_positions.push(pos);
     }
     pub fn new() -> Self {
         let mut grid = Vec::new();
@@ -131,14 +137,19 @@ impl Grid {
         let head_pos: (isize, isize) = (0, 0);
         let tail_pos: (isize, isize) = (0, 0);
 
+        let all_tail_positions = Vec::new();
+
         let mut grid = Grid {
             grid,
             head_pos,
             tail_pos,
+            all_tail_positions,
         };
 
         grid.set(tail_pos.0 as usize, tail_pos.1 as usize, GridPosition::Tail);
         grid.set(head_pos.0 as usize, head_pos.1 as usize, GridPosition::Head);
+
+        // grid.store_tail_position(tail_pos);
 
         // check that all rows have the same width/length
         let l = grid.grid[0].len();
@@ -246,16 +257,22 @@ impl Grid {
                 );
 
                 self.tail_pos = new_tail_pos;
+
+                self.store_tail_position(self.tail_pos);
             }
 
-            println!(
-                "Grid after applying step {} of {}:\n{:?}",
-                _i + 1,
-                instruction.count,
-                self
-            );
-            println!("========================================");
+            // println!(
+            //     "Grid after applying step {} of {}:\n{:?}",
+            //     _i + 1,
+            //     instruction.count,
+            //     self
+            // );
+            // println!("========================================");
         }
+    }
+
+    pub fn n_tail_positions(&self) -> usize {
+        self.all_tail_positions.len()
     }
 }
 
@@ -264,7 +281,8 @@ fn main() {
 
     println!("Grid:\n{:#?}", grid);
 
-    let lines = include_str!("../input-small3.txt").lines().collect();
+    // let lines = include_str!("../input.txt").lines().collect();
+    let lines = vec!["R 1", "U 1", "D 1", "U 1", "R 2", "D 2"];
 
     let instructions = create_instructions(&lines);
 
@@ -276,6 +294,8 @@ fn main() {
 
         println!("Grid:\n{:#?}", grid);
     }
+
+    println!("Tail Positions: {}", grid.n_tail_positions());
 }
 
 #[cfg(test)]
