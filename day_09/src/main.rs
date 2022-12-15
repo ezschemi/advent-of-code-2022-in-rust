@@ -322,12 +322,7 @@ mod tests {
             },
         ];
 
-        let instructions = all_instructions[0..n_instructions]
-            .iter()
-            .cloned()
-            .collect();
-
-        instructions
+        all_instructions[0..n_instructions].to_vec()
     }
 
     fn get_instructions(set_number: usize, n_instructions: usize) -> Vec<MoveInstruction> {
@@ -337,9 +332,13 @@ mod tests {
         }
     }
 
-    #[test_case(1, 8, 2, 2)]
     #[test_case(1, 2, 4, 4)]
     #[test_case(1, 3, 1, 4)]
+    #[test_case(1, 4, 1, 3)]
+    #[test_case(1, 5, 5, 3)]
+    #[test_case(1, 6, 5, 2)]
+    #[test_case(1, 7, 0, 2)]
+    #[test_case(1, 8, 2, 2)]
     fn test_head_moving(
         instruction_set_number: usize,
         n_instructions: usize,
@@ -365,9 +364,13 @@ mod tests {
         assert_eq!(grid.head_pos.1 as usize, expected_head_pos_y);
     }
 
-    #[test_case(1, 8, 1, 2)]
     #[test_case(1, 2, 4, 3)]
     #[test_case(1, 3, 2, 4)]
+    #[test_case(1, 4, 2, 4)]
+    #[test_case(1, 5, 4, 3)]
+    #[test_case(1, 6, 4, 3)]
+    #[test_case(1, 7, 1, 2)]
+    #[test_case(1, 8, 1, 2)]
     fn test_tail_moving(
         instruction_set_number: usize,
         n_instructions: usize,
