@@ -141,6 +141,13 @@ impl Grid {
         grid.set(tail_pos.0 as usize, tail_pos.1 as usize, GridPosition::Tail);
         grid.set(head_pos.0 as usize, head_pos.1 as usize, GridPosition::Head);
 
+        // check that all rows have the same width/length
+        let l = grid.grid[0].len();
+        for i in 1..grid.grid.len() {
+            let row = &grid.grid[i];
+            assert!(l == row.len());
+        }
+
         grid
     }
 
@@ -151,7 +158,7 @@ impl Grid {
             MoveDirection::Left => (-1, 0),
             MoveDirection::Down => (0, -1),
         };
-        for i in 0..instruction.count {
+        for _i in 0..instruction.count {
             let old_head_pos = self.head_pos;
             let new_head_pos = (old_head_pos.0 + dir.0, old_head_pos.1 + dir.1);
 
@@ -168,36 +175,65 @@ impl Grid {
 
             self.head_pos = new_head_pos;
 
+            // moving the head outside the grid is clearly a bug
+            assert!(self.head_pos.0 >= 0);
+            assert!(self.head_pos.1 >= 0);
+            // all the rows are the same width
+            assert!(self.head_pos.0 < self.grid[0].len() as isize);
+            assert!(self.head_pos.1 < self.grid.len() as isize);
+
             let delta_head_tail = (
                 self.head_pos.0 - self.tail_pos.0,
                 self.head_pos.1 - self.tail_pos.1,
             );
 
-            println!("delta_head_tail: {:?}", delta_head_tail);
+            // tail should never be too far away from head
+            assert!(delta_head_tail.0 <= 2);
+            assert!(delta_head_tail.1 <= 2);
 
-            if delta_head_tail.0 > 1 || delta_head_tail.1 > 1 {
+            let tail_touching_head = (delta_head_tail.0 == 0 && delta_head_tail.1 == 1)
+                || (delta_head_tail.0 == 1 && delta_head_tail.1 == 0);
+
+            let tail_head_same_row = delta_head_tail.1 == 0;
+            let tail_head_same_column = delta_head_tail.0 == 0;
+
+            let need_to_move_diagonally =
+                !tail_touching_head && !tail_head_same_row && !tail_head_same_column;
+
+            dbg!(delta_head_tail);
+            dbg!(tail_touching_head);
+            dbg!(tail_head_same_row);
+            dbg!(tail_head_same_column);
+            dbg!(need_to_move_diagonally);
+
+            // dbg!(self.head_pos);
+            // dbg!(self.tail_pos);
+            // dbg!(delta_head_tail);
+
+            // println!("delta_head_tail: {:?}", delta_head_tail);
+
+            if delta_head_tail.0.abs() > 1 || delta_head_tail.1.abs() > 1 {
                 // need to move the tail now too
                 let old_tail_pos = self.tail_pos;
-                let mut new_tail_pos = old_tail_pos.clone();
+                let mut new_tail_pos = old_tail_pos;
 
-                if delta_head_tail.0 > 1 {
+                if delta_head_tail.0 >= 1 {
                     new_tail_pos.0 += 1;
-                } else if delta_head_tail.0 < 1 {
+                } else if delta_head_tail.0 <= -1 {
                     new_tail_pos.0 -= 1;
                 }
-                if delta_head_tail.1 > 1 {
+                if delta_head_tail.1 >= 1 {
                     new_tail_pos.1 += 1;
-                } else if delta_head_tail.1 < 1 {
+                } else if delta_head_tail.1 <= -1 {
                     new_tail_pos.1 -= 1;
                 }
 
-                if new_tail_pos.0 < 0 {
-                    new_tail_pos.0 = 0;
-                }
-
-                if new_tail_pos.1 < 0 {
-                    new_tail_pos.1 = 0;
-                }
+                // moving the tail outside the grid is clearly a bug
+                assert!(new_tail_pos.0 >= 0);
+                assert!(new_tail_pos.1 >= 0);
+                // all the rows are the same width
+                assert!(new_tail_pos.0 < self.grid[0].len() as isize);
+                assert!(new_tail_pos.1 < self.grid.len() as isize);
 
                 self.set(
                     old_tail_pos.0 as usize,
@@ -212,6 +248,14 @@ impl Grid {
 
                 self.tail_pos = new_tail_pos;
             }
+
+            println!(
+                "Grid after applying step {} of {}:\n{:?}",
+                _i + 1,
+                instruction.count,
+                self
+            );
+            println!("========================================");
         }
     }
 }
@@ -221,7 +265,7 @@ fn main() {
 
     println!("Grid:\n{:#?}", grid);
 
-    let lines = include_str!("../input-small2.txt").lines().collect();
+    let lines = include_str!("../input-small3.txt").lines().collect();
 
     let instructions = create_instructions(&lines);
 
@@ -263,6 +307,28 @@ mod tests {
         assert_eq!(grid.head_pos.0 as usize, expected_head_pos_x);
         assert_eq!(grid.head_pos.1 as usize, expected_head_pos_y);
     }
+    #[test_case(4, 4)]
+    fn test_head_moving_2(expected_head_pos_x: usize, expected_head_pos_y: usize) {
+        let mut grid = Grid::new();
+
+        println!("Grid:\n{:#?}", grid);
+
+        let lines = include_str!("../input-small2.txt").lines().collect();
+
+        let instructions = create_instructions(&lines);
+
+        println!("Instructions: {}", instructions.len());
+
+        for ins in instructions {
+            println!("Instruction: {:#?}", ins);
+            grid.apply(&ins);
+
+            println!("Grid:\n{:#?}", grid);
+        }
+
+        assert_eq!(grid.head_pos.0 as usize, expected_head_pos_x);
+        assert_eq!(grid.head_pos.1 as usize, expected_head_pos_y);
+    }
 
     #[test_case(1, 2)]
     fn test_tail_moving(expected_tail_pos_x: usize, expected_tail_pos_y: usize) {
@@ -271,6 +337,28 @@ mod tests {
         println!("Grid:\n{:#?}", grid);
 
         let lines = include_str!("../input-small.txt").lines().collect();
+
+        let instructions = create_instructions(&lines);
+
+        println!("Instructions: {}", instructions.len());
+
+        for ins in instructions {
+            println!("Instruction: {:#?}", ins);
+            grid.apply(&ins);
+
+            println!("Grid:\n{:#?}", grid);
+        }
+
+        assert_eq!(grid.tail_pos.0 as usize, expected_tail_pos_x);
+        assert_eq!(grid.tail_pos.1 as usize, expected_tail_pos_y);
+    }
+    #[test_case(4, 3)]
+    fn test_tail_moving_2(expected_tail_pos_x: usize, expected_tail_pos_y: usize) {
+        let mut grid = Grid::new();
+
+        println!("Grid:\n{:#?}", grid);
+
+        let lines = include_str!("../input-small2.txt").lines().collect();
 
         let instructions = create_instructions(&lines);
 
