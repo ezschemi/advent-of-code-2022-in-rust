@@ -1,14 +1,13 @@
 use core::fmt;
-use std::fmt::Write;
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 enum MoveDirection {
     Right,
     Up,
     Left,
     Down,
 }
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 struct MoveInstruction {
     direction: MoveDirection,
     count: usize,
@@ -191,20 +190,20 @@ impl Grid {
             assert!(delta_head_tail.0 <= 2);
             assert!(delta_head_tail.1 <= 2);
 
-            let tail_touching_head = (delta_head_tail.0 == 0 && delta_head_tail.1 == 1)
-                || (delta_head_tail.0 == 1 && delta_head_tail.1 == 0);
+            // let tail_touching_head = (delta_head_tail.0 == 0 && delta_head_tail.1 == 1)
+            //     || (delta_head_tail.0 == 1 && delta_head_tail.1 == 0);
 
-            let tail_head_same_row = delta_head_tail.1 == 0;
-            let tail_head_same_column = delta_head_tail.0 == 0;
+            // let tail_head_same_row = delta_head_tail.1 == 0;
+            // let tail_head_same_column = delta_head_tail.0 == 0;
 
-            let need_to_move_diagonally =
-                !tail_touching_head && !tail_head_same_row && !tail_head_same_column;
+            // let need_to_move_diagonally =
+            //     !tail_touching_head && !tail_head_same_row && !tail_head_same_column;
 
-            dbg!(delta_head_tail);
-            dbg!(tail_touching_head);
-            dbg!(tail_head_same_row);
-            dbg!(tail_head_same_column);
-            dbg!(need_to_move_diagonally);
+            // dbg!(delta_head_tail);
+            // dbg!(tail_touching_head);
+            // dbg!(tail_head_same_row);
+            // dbg!(tail_head_same_column);
+            // dbg!(need_to_move_diagonally);
 
             // dbg!(self.head_pos);
             // dbg!(self.tail_pos);
@@ -281,19 +280,77 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use crate::create_instructions;
+
     use crate::Grid;
+    use crate::MoveDirection;
+    use crate::MoveInstruction;
     use test_case::test_case;
 
-    #[test_case(2, 2)]
-    fn test_head_moving(expected_head_pos_x: usize, expected_head_pos_y: usize) {
+    fn get_instructions_1(n_instructions: usize) -> Vec<MoveInstruction> {
+        let all_instructions = vec![
+            MoveInstruction {
+                direction: MoveDirection::Right,
+                count: 4,
+            },
+            MoveInstruction {
+                direction: MoveDirection::Up,
+                count: 4,
+            },
+            MoveInstruction {
+                direction: MoveDirection::Left,
+                count: 3,
+            },
+            MoveInstruction {
+                direction: MoveDirection::Down,
+                count: 1,
+            },
+            MoveInstruction {
+                direction: MoveDirection::Right,
+                count: 4,
+            },
+            MoveInstruction {
+                direction: MoveDirection::Down,
+                count: 1,
+            },
+            MoveInstruction {
+                direction: MoveDirection::Left,
+                count: 5,
+            },
+            MoveInstruction {
+                direction: MoveDirection::Right,
+                count: 2,
+            },
+        ];
+
+        let instructions = all_instructions[0..n_instructions]
+            .iter()
+            .cloned()
+            .collect();
+
+        instructions
+    }
+
+    fn get_instructions(set_number: usize, n_instructions: usize) -> Vec<MoveInstruction> {
+        match set_number {
+            1 => get_instructions_1(n_instructions),
+            _ => panic!(),
+        }
+    }
+
+    #[test_case(1, 8, 2, 2)]
+    #[test_case(1, 2, 4, 4)]
+    #[test_case(1, 3, 1, 4)]
+    fn test_head_moving(
+        instruction_set_number: usize,
+        n_instructions: usize,
+        expected_head_pos_x: usize,
+        expected_head_pos_y: usize,
+    ) {
         let mut grid = Grid::new();
 
         println!("Grid:\n{:#?}", grid);
 
-        let lines = include_str!("../input-small.txt").lines().collect();
-
-        let instructions = create_instructions(&lines);
+        let instructions = get_instructions(instruction_set_number, n_instructions);
 
         println!("Instructions: {}", instructions.len());
 
@@ -307,60 +364,21 @@ mod tests {
         assert_eq!(grid.head_pos.0 as usize, expected_head_pos_x);
         assert_eq!(grid.head_pos.1 as usize, expected_head_pos_y);
     }
-    #[test_case(4, 4)]
-    fn test_head_moving_2(expected_head_pos_x: usize, expected_head_pos_y: usize) {
+
+    #[test_case(1, 8, 1, 2)]
+    #[test_case(1, 2, 4, 3)]
+    #[test_case(1, 3, 2, 4)]
+    fn test_tail_moving(
+        instruction_set_number: usize,
+        n_instructions: usize,
+        expected_tail_pos_x: usize,
+        expected_tail_pos_y: usize,
+    ) {
         let mut grid = Grid::new();
 
         println!("Grid:\n{:#?}", grid);
 
-        let lines = include_str!("../input-small2.txt").lines().collect();
-
-        let instructions = create_instructions(&lines);
-
-        println!("Instructions: {}", instructions.len());
-
-        for ins in instructions {
-            println!("Instruction: {:#?}", ins);
-            grid.apply(&ins);
-
-            println!("Grid:\n{:#?}", grid);
-        }
-
-        assert_eq!(grid.head_pos.0 as usize, expected_head_pos_x);
-        assert_eq!(grid.head_pos.1 as usize, expected_head_pos_y);
-    }
-
-    #[test_case(1, 2)]
-    fn test_tail_moving(expected_tail_pos_x: usize, expected_tail_pos_y: usize) {
-        let mut grid = Grid::new();
-
-        println!("Grid:\n{:#?}", grid);
-
-        let lines = include_str!("../input-small.txt").lines().collect();
-
-        let instructions = create_instructions(&lines);
-
-        println!("Instructions: {}", instructions.len());
-
-        for ins in instructions {
-            println!("Instruction: {:#?}", ins);
-            grid.apply(&ins);
-
-            println!("Grid:\n{:#?}", grid);
-        }
-
-        assert_eq!(grid.tail_pos.0 as usize, expected_tail_pos_x);
-        assert_eq!(grid.tail_pos.1 as usize, expected_tail_pos_y);
-    }
-    #[test_case(4, 3)]
-    fn test_tail_moving_2(expected_tail_pos_x: usize, expected_tail_pos_y: usize) {
-        let mut grid = Grid::new();
-
-        println!("Grid:\n{:#?}", grid);
-
-        let lines = include_str!("../input-small2.txt").lines().collect();
-
-        let instructions = create_instructions(&lines);
+        let instructions = get_instructions(instruction_set_number, n_instructions);
 
         println!("Instructions: {}", instructions.len());
 
