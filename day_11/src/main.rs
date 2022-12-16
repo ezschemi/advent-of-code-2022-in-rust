@@ -152,8 +152,83 @@ struct BadInput {
     kind: BaseErrorKind<&'static str, Box<dyn std::error::Error + Send + Sync>>,
 }
 
+fn do_round(monkeys: &mut Vec<Monkey>, divisor_product: u64) {
+    let num_monkeys = monkeys.len();
+
+    for i in 0..num_monkeys {
+        // making a copy here is a bit wasteful, but allows
+        // to still mutate the monkeys by index
+        let monkey_copy;
+
+        {
+            let monkey = &mut monkeys[i];
+            monkey_copy = monkey.clone();
+
+            monkey.items_inspected += monkey_copy.items.len() as u64;
+        }
+
+        for mut items_worry_level in monkey_copy.items.iter().copied() {
+            items_worry_level %= divisor_product;
+            items_worry_level = monkey_copy.operation.eval(items_worry_level);
+
+            if items_worry_level % monkey_copy.divisor == 0 {
+                monkeys[monkey_copy.receiving_monkey_if_true]
+                    .items
+                    .push(items_worry_level);
+            } else {
+                monkeys[monkey_copy.receiving_monkey_if_false]
+                    .items
+                    .push(items_worry_level);
+            }
+        }
+        monkeys[i].items.clear();
+    }
+    // for m in monkeys {
+    //     for items_worry_level in &m.items {
+    //         // dbg!(items_worry_level);
+
+    //         let new_worry_level = match m.operation {
+    //             Operation::Multiply(a, b) => {
+    //                 let lhs: u64 = match a {
+    //                     Term::Old => *items_worry_level,
+    //                     Term::Constant(c) => c,
+    //                 };
+
+    //                 let rhs: u64 = match b {
+    //                     Term::Old => *items_worry_level,
+    //                     Term::Constant(c) => c,
+    //                 };
+
+    //                 lhs * rhs
+    //             }
+    //             Operation::Add(a, b) => {
+    //                 let lhs: u64 = match a {
+    //                     Term::Old => *items_worry_level,
+    //                     Term::Constant(c) => c,
+    //                 };
+
+    //                 let rhs: u64 = match b {
+    //                     Term::Old => *items_worry_level,
+    //                     Term::Constant(c) => c,
+    //                 };
+
+    //                 lhs + rhs
+    //             }
+    //         };
+
+    //         // dbg!(new_worry_level);
+
+    //         if (new_worry_level % m.divisor) == 0 {
+    //             monkeys[m.receiving_monkey_if_true]
+    //                 .items
+    //                 .push(*items_worry_level);
+    //         } else {
+    //         }
+    //     }
+    // }
+}
 fn main() {
-    let input_static = concat!(include_str!("../input-sample.txt"), "\n");
+    let input_static = concat!(include_str!("../input.txt"), "\n");
     let input = Span::new(input_static);
 
     let monkeys_res: Result<_, ErrorTree<Span>> =
@@ -186,7 +261,23 @@ fn main() {
         }
     };
 
-    for m in &monkeys {
-        println!("{:?}", m);
+    let divisor_product = monkeys.iter().map(|m| m.divisor).product::<u64>();
+    dbg!(divisor_product);
+
+    let mut monkeys = monkeys;
+    for _i in 0..10000 {
+        // println!("Round {}", _i + 1);
+        do_round(&mut monkeys, divisor_product);
     }
+
+    let mut all_inspection_counts = monkeys
+        .iter()
+        .map(|m| m.items_inspected)
+        .collect::<Vec<_>>();
+
+    all_inspection_counts.sort_by_key(|&count| std::cmp::Reverse(count));
+
+    let monkey_business = all_inspection_counts.into_iter().take(2).product::<u64>();
+
+    println!("Monkey Business: {}", monkey_business);
 }
