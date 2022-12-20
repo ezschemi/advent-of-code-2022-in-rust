@@ -1,56 +1,4 @@
-<!DOCTYPE html>
-<html>
-
-<head>
-	<style>
-		html,
-		body {
-			margin: 0;
-			padding: 0;
-			background: transparent;
-		}
-
-		svg {
-			width: 100%;
-			height: auto;
-		}
-	</style>
-</head>
-
-<body>
-	<div id="controls">
-		<button id="reset">♻ Reset</button>
-		<button id="step">➡ Step</button>
-		<div id="status"></div>
-		<div id="bar"></div>
-	</div>
-	<div id="content"></div>
-
-	<script type="module">
-		import init, { HeightmapGrid } from "./pkg/day_12.js";
-		async function main() {
-			// DOM is already loaded, the `<script>` tag is at the bottom of the page
-			let content = document.getElementById("content");
-			let status = document.getElementById("status");
-			let bar = document.getElementById("bar");
-			let reset_button = document.getElementById("reset");
-			let step_button = document.getElementById("step");
-
-			// wait for wasm to be actually loaded
-			await init();
-
-			let state = {};
-
-			let render = () => {
-				let { grid } = state;
-				content.innerHTML = grid.to_svg();
-				let percent = (grid.num_visited() / grid.num_cells() * 100);
-				status.innerText = `${grid.num_steps()} steps, ${grid.num_visited()}/${grid.num_cells()} visited (${percent.toFixed(1)}%)`;
-				bar.style.right = `${100 - percent}%`;
-			};
-
-			let reset = () => {
-				let input = `abccccccccccccccccccccccccccaaaaaaaaacccccccccccaaacccccccccccccccccccccccccaaaaaaaaccccccccaaaaaaccaaccccccccccccccccccccccccaaaaacaacaaaacccccccccccccccccccccccccccccccccccccaaaaa
+abccccccccccccccccccccccccccaaaaaaaaacccccccccccaaacccccccccccccccccccccccccaaaaaaaaccccccccaaaaaaccaaccccccccccccccccccccccccaaaaacaacaaaacccccccccccccccccccccccccccccccccccccaaaaa
 abccaaacccccccccccccccccccccaaaaaaaaacccccccccaaaaaacccccccccccccccccccccaaaaaaaaaaaccccccccaaaaaaccaaaaaacccaacaaccccccccccccaaaaaaaacaaaaaaccccccccccccccccccccccccccccccccccaaaaaa
 abccaaaaccccccccccccccccccccaaaaaaaaccccccccccaaaaaaccccaaaaaccccccccccccaaaaaaaaaaacccccccccaaaaaccaaaaaccccaaaacccccccccccccccaaaaacccaaaaaccccccccccccccccccccaaccccccccccccaaaaaa
 abccaaaacccccccaaaccccccccccaaaaaaacccccccccccaaaaaaccccaaaaaccccccccccccacaaaaaaaaaacccccccaaaaacaaaaaaacccaaaaaccccccccccccccaaaaacccaaaaaccccccccccccccccccccaaaaccccccccccccccaaa
@@ -90,20 +38,4 @@ abaaaaaccccccaaccaaaaaaaaaacccccaaacaaaaaacaaaccccccccccccaaaaaccccccccccaaaaaca
 abaaaacccaaacaaccaaaaaaaaaacccccaaaaaaaaaaaaaaaaacccccccccaaaaaaccccccccccaaaaaaaaaaacaaacccacccaacccccccccaaaaccccaaacccccccccccaaaaaaaaaaaaaaacccccccccccccaaaccccaaccccccccccccaaa
 abaaaaacccaaaaacccccaaacaaacccccaaaaaaccaaaaaaaaacccccccccaaaaaaccaaccacccaaaaaaaaaaaaaaaccccccaaacccccccccaaaaccccaaaaccccccccccaaaaaaaaaaaaaaccccccccccccccaaaccccccccccccccccccaaa
 abaaaaacccaaaaaaacccaaaccccccccaaaaaaaaccaaaaaaaccccccccccaaaaacccaaaaaccccaaaaaaaaaaaaacccccaaaaaaaaccccccaaaaccccaaaacccccccccccaaaaaaacccaaaccccccccccccccaaacccccccccccccccaaaaaa
-abcccccccaaaaaaaaccccaacccccccaaaaaaaaaaaaaaaaacccccccccccaaaaaccaaaaaacccccaaaaaaaaaaaaaccccaaaaaaaacccccccaacccccaaacccccccccccccaaaaaaacccccccccccccccccccccccccccccccccccccaaaaaa`;
-				state.grid = new HeightmapGrid(input);
-				render();
-			}
-
-			reset_button.onclick = reset;
-			step_button.onclick = () => {
-				state.grid.step_breadth_first();
-				render();
-			};
-			reset();
-		};
-		main();
-	</script>
-</body>
-
-</html>
+abcccccccaaaaaaaaccccaacccccccaaaaaaaaaaaaaaaaacccccccccccaaaaaccaaaaaacccccaaaaaaaaaaaaaccccaaaaaaaacccccccaacccccaaacccccccccccccaaaaaaacccccccccccccccccccccccccccccccccccccaaaaaa
