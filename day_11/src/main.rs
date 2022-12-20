@@ -183,49 +183,6 @@ fn do_round(monkeys: &mut Vec<Monkey>, divisor_product: u64) {
         }
         monkeys[i].items.clear();
     }
-    // for m in monkeys {
-    //     for items_worry_level in &m.items {
-    //         // dbg!(items_worry_level);
-
-    //         let new_worry_level = match m.operation {
-    //             Operation::Multiply(a, b) => {
-    //                 let lhs: u64 = match a {
-    //                     Term::Old => *items_worry_level,
-    //                     Term::Constant(c) => c,
-    //                 };
-
-    //                 let rhs: u64 = match b {
-    //                     Term::Old => *items_worry_level,
-    //                     Term::Constant(c) => c,
-    //                 };
-
-    //                 lhs * rhs
-    //             }
-    //             Operation::Add(a, b) => {
-    //                 let lhs: u64 = match a {
-    //                     Term::Old => *items_worry_level,
-    //                     Term::Constant(c) => c,
-    //                 };
-
-    //                 let rhs: u64 = match b {
-    //                     Term::Old => *items_worry_level,
-    //                     Term::Constant(c) => c,
-    //                 };
-
-    //                 lhs + rhs
-    //             }
-    //         };
-
-    //         // dbg!(new_worry_level);
-
-    //         if (new_worry_level % m.divisor) == 0 {
-    //             monkeys[m.receiving_monkey_if_true]
-    //                 .items
-    //                 .push(*items_worry_level);
-    //         } else {
-    //         }
-    //     }
-    // }
 }
 fn main() {
     let input_static = concat!(include_str!("../input.txt"), "\n");
@@ -266,7 +223,6 @@ fn main() {
 
     let mut monkeys = monkeys;
     for _i in 0..10000 {
-        // println!("Round {}", _i + 1);
         do_round(&mut monkeys, divisor_product);
     }
 
