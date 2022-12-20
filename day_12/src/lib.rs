@@ -18,6 +18,7 @@ pub struct HeightmapGrid {
 }
 #[wasm_bindgen]
 impl HeightmapGrid {
+    #[wasm_bindgen(constructor)]
     pub fn parse(input: &str) -> Self {
         let first_line = input.lines().next().unwrap();
         let width = first_line.len();
