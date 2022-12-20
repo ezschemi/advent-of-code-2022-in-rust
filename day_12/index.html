@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<style>
+		html,
+		body {
+			margin: 0;
+			padding: 0;
+			background: transparent;
+		}
+
+		svg {
+			width: 100%;
+			height: auto;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="content"></div>
+
+	<script type="module">
+		import init, { HeightmapGrid } from "./pkg/day_12.js";
+
+		async function main() {
+			// DOM is already loaded, the `<script>` tag is at the bottom of the page
+			let content = document.getElementById("content");
+
+			// wait for wasm to be actually loaded
+			await init();
+
+			let input = `Sabqponm
+abcryxxl
+accszExk
+acctuvwj
+abdefghi`;
+			let grid = new HeightmapGrid(input);
+			content.innerHTML = grid.to_svg();
+		};
+		main();
+	</script>
+</body>
+
+</html>
