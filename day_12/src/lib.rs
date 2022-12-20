@@ -87,10 +87,14 @@ impl HeightmapGrid {
         Some(&self.cells[coord.y * self.width + coord.x])
     }
 
-    fn walkable_neighbors(&self, coord: GridCoord) -> impl Iterator<Item = GridCoord> + '_ {
+    fn walkable_neighbors(
+        &self,
+        coord: GridCoord,
+        delta: isize,
+    ) -> impl Iterator<Item = GridCoord> + '_ {
         let current_elevation = self.get_cell(coord).unwrap().get_elevation();
 
-        let deltas: [(isize, isize); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
+        let deltas: [(isize, isize); 4] = [(-delta, 0), (delta, 0), (0, -delta), (0, delta)];
 
         let x: isize = coord.x as isize;
         let y: isize = coord.y as isize;
@@ -104,6 +108,34 @@ impl HeightmapGrid {
             .filter(|&coord| {
                 let other_elevation = self.get_cell(coord).unwrap().get_elevation();
                 other_elevation <= current_elevation + 1
+            })
+        })
+    }
+
+    fn walkable_neighbors_reverse(
+        &self,
+        coord: GridCoord,
+        delta: isize,
+    ) -> impl Iterator<Item = GridCoord> + '_ {
+        let current_elevation = self.get_cell(coord).unwrap().get_elevation();
+
+        let deltas: [(isize, isize); 4] = [(-delta, 0), (delta, 0), (0, -delta), (0, delta)];
+
+        let x: isize = coord.x as isize;
+        let y: isize = coord.y as isize;
+
+        deltas.into_iter().filter_map(move |(dx, dy)| {
+            Some(GridCoord {
+                x: (x + dx) as usize,
+                y: (y + dy) as usize,
+            })
+            .filter(|&coord| self.in_bounds(coord))
+            .filter(|&coord| {
+                let other_elevation = self.get_cell(coord).unwrap().get_elevation();
+                if current_elevation == 0 {
+                    return true;
+                }
+                other_elevation >= current_elevation - 1
             })
         })
     }
@@ -133,7 +165,45 @@ impl HeightmapGrid {
         let mut visited = std::mem::take(&mut self.visited);
 
         for curr in current {
-            for ncoord in self.walkable_neighbors(curr) {
+            for ncoord in self.walkable_neighbors(curr, 1) {
+                if visited.contains_key(&ncoord) {
+                    // been here already
+                    continue;
+                }
+                visited.insert(ncoord, HeightMapCellRecord { prev: Some(curr) });
+                next.insert(ncoord);
+            }
+        }
+        self.current = next;
+        self.visited = visited;
+        self.num_steps += 1;
+    }
+
+    pub fn step_breadth_first_reverse(&mut self) {
+        if self.current.is_empty() {
+            let mut end_coord: Option<GridCoord> = None;
+            for y in 0..self.height {
+                for x in 0..self.width {
+                    let coord: GridCoord = (x, y).into();
+                    if let HeightMapCell::End = self.get_cell(coord).unwrap() {
+                        end_coord = Some(coord);
+                        break;
+                    }
+                }
+            }
+            let end_coord = end_coord.unwrap();
+            self.current.insert(end_coord);
+            self.visited
+                .insert(end_coord, HeightMapCellRecord { prev: None });
+            return;
+        }
+
+        let current = std::mem::take(&mut self.current);
+        let mut next = HashSet::new();
+        let mut visited = std::mem::take(&mut self.visited);
+
+        for curr in current {
+            for ncoord in self.walkable_neighbors_reverse(curr, -1) {
                 if visited.contains_key(&ncoord) {
                     // been here already
                     continue;
@@ -152,6 +222,17 @@ impl HeightmapGrid {
             let cell = self.get_cell(*coord).unwrap();
 
             if HeightMapCell::End == *cell {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn is_at_elevation_0(&self) -> bool {
+        for coord in &self.current {
+            let cell = self.get_cell(*coord).unwrap();
+
+            if cell.get_elevation() == 0 {
                 return true;
             }
         }
@@ -269,27 +350,6 @@ impl HeightmapGrid {
                 coord = *prev;
             }
         }
-
-        // for y in 0..self.height {
-        //     for x in 0..self.width {
-        //         let coord: GridCoord = (x, y).into();
-        //         for ncoord in self.walkable_neighbors(coord) {
-        //             let (x, y) = (x as f32, y as f32);
-        //             let dx = ncoord.x as f32 - x;
-        //             let dy = ncoord.y as f32 - y;
-
-        //             let line = svg::node::element::Line::new()
-        //                 .set("x1", (x + 0.5 + dx * 0.05) * side)
-        //                 .set("y1", (y + 0.5 + dy * 0.05) * side)
-        //                 .set("x2", (x + 0.5 + dx * 0.45) * side)
-        //                 .set("y2", (y + 0.5 + dy * 0.45) * side)
-        //                 .set("stroke", "#ffc107")
-        //                 .set("stroke-width", "1px")
-        //                 .set("marker-end", "url(#arrowhead)");
-        //             document = document.add(line);
-        //         }
-        //     }
-        // }
 
         document.to_string()
     }
